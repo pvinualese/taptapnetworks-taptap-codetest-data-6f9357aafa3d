@@ -6,14 +6,14 @@ import argparse
 import logging
 from pathlib import Path
 
-from taptap_codetest.cleaning import Cleaner
+from taptap_codetest.cleaning import Cleaner, EventIdMerger
 from taptap_codetest.cleaning import default_rules as default_cleaning_rules
 from taptap_codetest.extraction import JSONLExtractor
 from taptap_codetest.pipeline import Pipeline
 from taptap_codetest.reference import load_publishers
 from taptap_codetest.tabular import MetricsTabulator
-from taptap_codetest.transformation import DEFAULT_RULES as DEFAULT_TRANSFORMATION_RULES
 from taptap_codetest.transformation import Transformer
+from taptap_codetest.transformation import default_rules as default_transformation_rules
 from taptap_codetest.writing import WRITERS, RejectionWriter
 
 
@@ -42,12 +42,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def build_pipeline(input_path: Path, output_format: str = "csv") -> Pipeline:
+    publishers = load_publishers(input_path)
     return Pipeline(
         extractor=JSONLExtractor(),
         cleaner=Cleaner(rules=default_cleaning_rules()),
-        transformer=Transformer(rules=DEFAULT_TRANSFORMATION_RULES),
-        tabulator=MetricsTabulator(publishers=load_publishers(input_path)),
-        writer=WRITERS[output_format](),
+        merger=EventIdMerger(),
+        transformer=Transformer(rules=default_transformation_rules(publishers)),
+        tabulator=MetricsTabulator(),
+        writer=WRITERS[output_format](partition_column="date_utc", partition_label="date"),
         rejection_writer=RejectionWriter(),
     )
 
@@ -61,7 +63,9 @@ def main(argv: list[str] | None = None) -> None:
 
     logging.getLogger(__name__).info(
         "Rejected %d lines",
-        len(pipeline.extractor.rejections) + len(pipeline.cleaner.rejections),
+        len(pipeline.extractor.rejections)
+        + len(pipeline.cleaner.rejections)
+        + len(pipeline.merger.rejections),
     )
 
 

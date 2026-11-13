@@ -1,4 +1,4 @@
 from taptap_codetest.transformation.base import Transformer, TransformationRule
-from taptap_codetest.transformation.rules import DEFAULT_RULES
+from taptap_codetest.transformation.rules import default_rules
 
-__all__ = ["Transformer", "TransformationRule", "DEFAULT_RULES"]
+__all__ = ["Transformer", "TransformationRule", "default_rules"]

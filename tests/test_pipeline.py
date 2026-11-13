@@ -38,13 +38,14 @@ def test_pipeline_aggregates_and_writes_rejections(tmp_path):
         bad_ts_line,
         '{"event_id": "br_4", event_type: "bid_request"}',
         redelivered_line,  # at-least-once redelivery of the first line, byte-identical
+        _event("br_5", "bid_request", "2026-09-02T09:00:00Z"),  # its own date partition
     ]
     (input_dir / "events.jsonl").write_text("\n".join(lines) + "\n")
 
     build_pipeline(input_dir).run(input_dir, output_dir)
 
-    metrics = pd.read_csv(output_dir / "metrics.csv")
-    assert metrics.to_dict("records") == [
+    metrics_day1 = pd.read_csv(output_dir / "date=2026-09-01" / "metrics.csv")
+    assert metrics_day1.to_dict("records") == [
         {
             "date_utc": "2026-09-01",
             "hour_utc": 10,
@@ -59,9 +60,25 @@ def test_pipeline_aggregates_and_writes_rejections(tmp_path):
         }
     ]
 
+    metrics_day2 = pd.read_csv(output_dir / "date=2026-09-02" / "metrics.csv")
+    assert metrics_day2.to_dict("records") == [
+        {
+            "date_utc": "2026-09-02",
+            "hour_utc": 9,
+            "country": "ES",
+            "publisher_id": "pub_001",
+            "publisher_name": "El Diario Digital",
+            "bid_requests": 1,
+            "impressions": 0,
+            "clicks": 0,
+            "ctr": 0.0,
+            "spend_eur": 0.0,
+        }
+    ]
+
     rejected = [
         json.loads(line)
-        for line in (output_dir / "rejected.jsonl").read_text().splitlines()
+        for line in (output_dir / "_rejects" / "rejects.jsonl").read_text().splitlines()
     ]
     assert [(r["line_number"], r["reason"].split(":")[0]) for r in rejected] == [
         (5, "invalid_price"),
@@ -73,3 +90,22 @@ def test_pipeline_aggregates_and_writes_rejections(tmp_path):
     assert rejected[1]["raw_line"] == bad_ts_line
     assert rejected[1]["source_file"].endswith("events.jsonl")
     assert rejected[3]["raw_line"] == redelivered_line
+
+
+def test_late_event_partitions_by_its_own_date_not_the_file_it_arrived_in(tmp_path):
+    input_dir = tmp_path / "in"
+    output_dir = tmp_path / "out"
+    input_dir.mkdir()
+    (input_dir / "publishers.csv").write_text(
+        "publisher_id,publisher_name,tier\npub_001,El Diario Digital,premium\n"
+    )
+    # Delivered inside "day 2"'s file, but it happened on day 1.
+    late_line = _event("br_late", "bid_request", "2026-09-01T23:00:00Z")
+    (input_dir / "events_2026-09-02.jsonl").write_text(late_line + "\n")
+
+    build_pipeline(input_dir).run(input_dir, output_dir)
+
+    assert not (output_dir / "date=2026-09-02").exists()
+    metrics = pd.read_csv(output_dir / "date=2026-09-01" / "metrics.csv")
+    assert metrics.loc[0, "date_utc"] == "2026-09-01"
+    assert metrics.loc[0, "hour_utc"] == 23

@@ -1,0 +1,8 @@
+date_utc,hour_utc,country,publisher_id,publisher_name,bid_requests,impressions,clicks,ctr,spend_eur
+2026-09-02,0,FR,pub_008,TechnoPress,1,0,0,0.000000,0.000000
+2026-09-02,0,PT,pub_011,Series y Cine,1,0,0,0.000000,0.000000
+2026-09-02,0,XX,pub_008,TechnoPress,0,2,0,0.000000,0.011312
+2026-09-02,0,XX,,UNKNOWN,1,0,0,0.000000,0.000000
+2026-09-02,1,ES,pub_013,Empleo Ya,0,1,0,0.000000,0.737200
+2026-09-02,6,ES,pub_007,Futbol Total,1,0,0,0.000000,0.000000
+2026-09-02,19,ES,pub_007,Futbol Total,0,1,0,0.000000,0.882700
