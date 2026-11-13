@@ -1,0 +1,1336 @@
+
+❯ tengo una serie de ficheros .jsonl dentro de la carpeta data que representan
+  eventos. quiero crear un programa python que los extraiga, limpie, transforme
+  y convierta a tablas, con la siguiente ejecución: uv run taptap-codetest
+  --input <data> --output <out>. quiero que me ayudes a crear la estructura del
+  proyecto, teniendo en cuenta que habrá una capa de extracción, una capa de
+  limpieza (borrado en base a unas reglas), una capa de transformación
+  (modificacion de valores), una capa para transformar a formato tabular y una
+  capa de escritura. con esto quiero conseguir desacoplamiento entre los
+  diferentes modulos. mas adelante me ayudaras a implementar las diferentes
+  reglas, por ahora quiero únicamente la estructura
+
+  Searched for 1 pattern, read 1 file, listed 2 directories, ran 6 shell commands (ctrl+o to expand)
+
+● Ahora creo la estructura de módulos. Empiezo por el modelo de registro
+  compartido y la capa de extracción.
+
+  Read 2 files (ctrl+o to expand)
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/pyproject.toml)
+  ⎿  Added 1 line, removed 1 line
+      1  [project]
+      2  name = "taptap-codetest"
+      3  version = "0.1.0"
+      4 -description = "Add your description here"                       
+      4 +description = "Extracts, cleans, transforms and tabulates ad eve
+        +nt JSONL data."                                                 
+      5  readme = "README.md"
+      6  authors = [
+      7      { name = "Pablo Vinuales Esquinas", email = "pablo.vinuales@
+         tinamica.com" }
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/pyproject.toml)
+  ⎿  Added 1 line, removed 1 line
+      13  ]
+      14  
+      15  [project.scripts]
+      16 -taptap-codetest = "taptap_codetest:main"                       
+      16 +taptap-codetest = "taptap_codetest.cli:main"                   
+      17  
+      18  [build-system]
+      19  requires = ["uv_build>=0.12.21,<0.13.0"]
+
+● Ahora creo los módulos base. Primero el modelo de registro común (records.py):
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/rec
+       ords.py)
+  ⎿  Wrote 24 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/records.py
+       1 """Shared record type passed between pipeline layers."""
+       2
+       3 from __future__ import annotations
+       4
+       5 from dataclasses import dataclass, field, replace
+       6 from typing import Any
+       7
+       8
+       9 @dataclass(frozen=True)
+      10 class Record:
+     … +14 lines (ctrl+o to expand)
+
+● Ahora la capa de extracción:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ext
+       raction/__init__.py)
+  ⎿  Wrote 4 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/extraction/__init__.py
+      1 from taptap_codetest.extraction.base import Extractor
+      2 from taptap_codetest.extraction.jsonl_extractor import JSONLExtra
+        ctor
+      3
+      4 __all__ = ["Extractor", "JSONLExtractor"]
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ext
+       raction/base.py)
+  ⎿  Wrote 22 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/extraction/base.py
+       1 """Extraction layer: turns raw input files into `Record` objects
+         .
+       2
+       3 This is the only layer that knows about file formats and I/O. Ev
+         erything
+       4 downstream (cleaning, transformation, tabulation, writing) works
+          on
+       5 `Record` objects and has no knowledge of where they came from.
+       6 """
+       7
+     … +15 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ext
+       raction/jsonl_extractor.py)
+  ⎿  Wrote 49 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/extraction/jsonl_extractor.py
+       1 """Default extractor: reads every `*.jsonl` file under a directo
+         ry."""
+       2
+       3 from __future__ import annotations
+       4
+       5 import json
+       6 import logging
+       7 from collections.abc import Iterator
+       8 from pathlib import Path
+       9
+     … +40 lines (ctrl+o to expand)
+
+● Ahora la capa de limpieza (cleaning):
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/__init__.py)
+  ⎿  Wrote 4 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/cleaning/__init__.py
+      1 from taptap_codetest.cleaning.base import Cleaner, CleaningRule
+      2 from taptap_codetest.cleaning.rules import DEFAULT_RULES
+      3
+      4 __all__ = ["Cleaner", "CleaningRule", "DEFAULT_RULES"]
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/base.py)
+  ⎿  Wrote 47 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/cleaning/base.py
+       1 """Cleaning layer: drops records that violate a business rule.
+       2
+       3 A `CleaningRule` only decides keep/drop; it never mutates a reco
+         rd's
+       4 values (that's the transformation layer's job).
+       5 """
+       6
+       7 from __future__ import annotations
+       8
+       9 import logging
+     … +38 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/rules/__init__.py)
+  ⎿  Wrote 9 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/cleaning/rules/__init__.py
+      1 """Concrete `CleaningRule` implementations.
+      2
+      3 Each rule lives in its own module and is appended to `DEFAULT_RUL
+        ES` so the
+      4 pipeline picks it up automatically. Empty for now.
+      5 """
+      6
+      7 from taptap_codetest.cleaning.base import CleaningRule
+      8
+      9 DEFAULT_RULES: list[CleaningRule] = []
+
+● Ahora la capa de transformación, simétrica a la de limpieza:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tra
+       nsformation/__init__.py)
+  ⎿  Wrote 4 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/transformation/__init__.py
+      1 from taptap_codetest.transformation.base import Transformer, Tran
+        sformationRule
+      2 from taptap_codetest.transformation.rules import DEFAULT_RULES
+      3
+      4 __all__ = ["Transformer", "TransformationRule", "DEFAULT_RULES"]
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tra
+       nsformation/base.py)
+  ⎿  Wrote 35 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/transformation/base.py
+       1 """Transformation layer: normalizes values on records that survi
+         ved cleaning.
+       2
+       3 A `TransformationRule` never drops a record (that's the cleaning
+          layer's
+       4 job); it only returns a record with (possibly) different payload
+          values.
+       5 """
+       6
+       7 from __future__ import annotations
+     … +28 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tra
+       nsformation/rules/__init__.py)
+  ⎿  Wrote 9 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/transformation/rules/__init__.py
+      1 """Concrete `TransformationRule` implementations.
+      2
+      3 Each rule lives in its own module and is appended to `DEFAULT_RUL
+        ES` so the
+      4 pipeline picks it up automatically. Empty for now.
+      5 """
+      6
+      7 from taptap_codetest.transformation.base import TransformationRul
+        e
+      8
+     … +1 line (ctrl+o to expand)
+
+● Ahora la capa tabular:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tab
+       ular/__init__.py)
+  ⎿  Wrote 4 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/
+     taptap_codetest/tabular/__init__.py
+      1 from taptap_codetest.tabular.base import Tabulator
+      2 from taptap_codetest.tabular.tabulator import EventTabulator
+      3
+      4 __all__ = ["Tabulator", "EventTabulator"]
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tab
+       ular/base.py)
+  ⎿  Wrote 25 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/tabular/base.py
+       1 """Tabular layer: turns a stream of records into one or more nam
+         ed tables.
+       2
+       3 Keeping this as a dict of {table_name: DataFrame} (rather than a
+          single
+       4 table) lets a future `Tabulator` split events by type, add a dim
+         ension
+       5 table, etc. without changing the writing layer.
+       6 """
+       7
+     … +18 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tab
+       ular/tabulator.py)  ⎿  Wrote 21 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/tabular/tabulator.py
+       1 """Default tabulator: one flat "events" table with every record'
+         s payload."""
+       2
+       3 from __future__ import annotations
+       4
+       5 from collections.abc import Iterable
+       6
+       7 import pandas as pd
+       8
+       9 from taptap_codetest.records import Record
+     … +12 lines (ctrl+o to expand)
+
+● Ahora la capa de escritura:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/__init__.py)
+  ⎿  Wrote 10 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/writing/__init__.py
+       1 from taptap_codetest.writing.base import Writer
+       2 from taptap_codetest.writing.csv_writer import CSVWriter
+       3 from taptap_codetest.writing.parquet_writer import ParquetWriter
+       4
+       5 WRITERS: dict[str, type[Writer]] = {
+       6     "csv": CSVWriter,
+       7     "parquet": ParquetWriter,
+       8 }
+       9
+      10 __all__ = ["Writer", "CSVWriter", "ParquetWriter", "WRITERS"]
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/base.py)
+  ⎿  Wrote 15 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/writing/base.py
+      1 """Writing layer: persists a `TableSet` to the output location.""
+        "
+      2
+      3 from __future__ import annotations
+      4
+      5 from abc import ABC, abstractmethod
+      6 from pathlib import Path
+      7
+      8 from taptap_codetest.tabular.base import TableSet
+      9
+     … +6 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/csv_writer.py)
+  ⎿  Wrote 13 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/writing/csv_writer.py
+       1 from __future__ import annotations
+       2
+       3 from pathlib import Path
+       4
+       5 from taptap_codetest.tabular.base import TableSet
+       6 from taptap_codetest.writing.base import Writer
+       7
+       8
+       9 class CSVWriter(Writer):
+      10     def write(self, tables: TableSet, output_path: Path) -> None
+     … +4 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/parquet_writer.py)
+  ⎿  Wrote 13 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/writing/parquet_writer.py
+       1 from __future__ import annotations
+       2
+       3 from pathlib import Path
+       4
+       5 from taptap_codetest.tabular.base import TableSet
+       6 from taptap_codetest.writing.base import Writer
+       7
+       8
+       9 class ParquetWriter(Writer):
+      10     def write(self, tables: TableSet, output_path: Path) -> None
+     … +4 lines (ctrl+o to expand)
+
+● Ahora el orquestador del pipeline y el __init__.py del paquete raíz:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/pip
+       eline.py)
+  ⎿  Wrote 30 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/pipeline.py
+       1 """Wires the five layers together. Each is injected, so any laye
+         r can be
+       2 swapped (e.g. a different `Writer`) without touching the others.
+       3 """
+       4
+       5 from __future__ import annotations
+       6
+       7 from dataclasses import dataclass
+       8 from pathlib import Path
+       9
+     … +21 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cli
+       .py)
+  ⎿  Wrote 56 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/cli.py
+       1 """`taptap-codetest --input <dir> --output <dir>` entry point.""
+         "
+       2
+       3 from __future__ import annotations
+       4
+       5 import argparse
+       6 import logging
+       7 from pathlib import Path
+       8
+       9 from taptap_codetest.cleaning import DEFAULT_RULES as DEFAULT_CL
+     … +48 lines (~2 KB) (ctrl+o to expand)
+
+● Ahora actualizo el __init__.py del paquete raíz (uv lo creó con un main()
+  placeholder que ya no se usa):
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/__i
+       nit__.py)
+  ⎿  Removed 2 lines
+      1 -def main() -> None:                                             
+      2 -    print("Hello from taptap-codetest!")                        
+
+● Ahora añado un pequeño scaffold de tests para verificar que el esqueleto
+  funciona end-to-end:
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/tests/__init__.py)
+  ⎿  Wrote 1 line to
+     taptapnetworks-taptap-codetest-data-6f9357aafa3d/tests/__init__.py
+      1 (No content)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/tests/test_pipeline.py)
+  ⎿  Wrote 20 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/tes
+     ts/test_pipeline.py
+      1 import pandas as pd
+      2
+      3 from taptap_codetest.cli import build_pipeline
+      4
+      5
+      6 def test_pipeline_runs_end_to_end(tmp_path):
+      7     input_dir = tmp_path / "in"
+      8     output_dir = tmp_path / "out"
+      9     input_dir.mkdir()
+     … +11 lines (ctrl+o to expand)
+
+● Ahora verifico que todo funciona: el test, y una ejecución real con uv run
+  sobre los datos reales en un directorio temporal de salida.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Test pasa. Ahora pruebo la ejecución real del CLI contra los datos reales:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Funciona de punta a punta: lee los 3 ficheros de data/, pone en cuarentena las
+  líneas JSON corruptas, y escribe la tabla final. Limpio el directorio
+  temporal de prueba.
+
+  Searched for 2 patterns, ran 1 shell command (ctrl+o to expand)
+
+● He creado el proyecto taptap-codetest con uv init --package y he montado la
+  estructura de capas desacopladas:
+
+  src/taptap_codetest/
+  ├── records.py              # Record: payload + procedencia (fichero/línea)
+  ├── pipeline.py              # Pipeline: orquesta las 5 capas por inyección
+  ├── cli.py                   # uv run taptap-codetest --input --output
+  [--format csv|parquet]
+  ├── extraction/              # Extractor (ABC) + JSONLExtractor
+  ├── cleaning/                # CleaningRule (ABC) + Cleaner + rules/
+  (DEFAULT_RULES vacía)
+  ├── transformation/          # TransformationRule (ABC) + Transformer + rules/
+  (DEFAULT_RULES vacía)
+  ├── tabular/                 # Tabulator (ABC) + EventTabulator (una tabla
+  "events")
+  └── writing/                 # Writer (ABC) + CSVWriter + ParquetWriter
+  tests/test_pipeline.py        # smoke test end-to-end
+
+  Decisiones clave:
+  - Record separa payload (los datos del evento) de la procedencia
+    (source_file/line_number), así las reglas de limpieza/transformación solo
+    ven datos reales, pero se puede trazar cualquier descarte hasta la línea
+    exacta.
+  - Cleaning vs Transformation: CleaningRule.keep() solo decide si se descarta
+    un registro; TransformationRule.apply() solo normaliza valores, nunca
+    descarta. Cada carpeta de reglas (rules/) tiene un DEFAULT_RULES = [] listo
+    para que añadamos reglas concretas más adelante, un fichero por regla.
+  - Extracción tolerante: JSONLExtractor recorre *.jsonl recursivamente y pone
+    en cuarentena (log + skip) las líneas con JSON corrupto — ya detecté que
+    data/ tiene bastantes líneas malformadas (comillas sin cerrar, claves sin
+    comillas, etc.), separado de las reglas de negocio de limpieza.
+  - Tabular: devuelve dict[str, DataFrame] en vez de una sola tabla, para poder
+    partir por tipo de evento o añadir tablas de dimensión (p.ej.
+    data/publishers.csv) sin tocar la capa de escritura.
+  - Writing: intercambiable vía --format csv|parquet.
+
+  Verificado: uv run pytest pasa, y uv run taptap-codetest --input data --output
+  <out> corre contra los datos reales, detecta las 12 líneas corruptas y genera
+  events.csv con 8247 filas.
+
+  Pendiente para cuando quieras: implementar las reglas concretas de limpieza
+  (duplicados, tipos de evento desconocidos, campos obligatorios ausentes...) y
+  transformación (normalizar ts entre epoch-ms/ISO/YYYY-MM-DD HH:MM:SS, country
+  con espacios/minúsculas, event_type con mayúsculas/alias como
+  imp/BID_REQUEST), y decidir qué hacer con late-delivery/ y
+  data/publishers.csv.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl in the IDE. This may
+  or may not be related to the current task.</ide_opened_file>
+
+❯ la primera regla que quiero implementar en la parte de limpieza es la
+  siguiente. en los ficheros jsonl hay un campo ts que representa la fecha de
+  generacion del evento. quiero que la fecha tenga las siguientes restricciones
+  de formato: ISO-8601 con Z (hora UTC); ISO-8601 con un desplazamiento
+  (offset) explícito; milisegundos epoch como número; milisegundos epoch como
+  cadena de texto (string); y una cadena sin zona horaria (naive) con formato
+  YYYY-MM-DD HH:MM:SS. Una marca de tiempo sin desplazamiento (offset)
+  corresponde a la hora local de Europe/Madrid, no a UTC. quiero que la tabla
+  de salida tenga los siguientes campos: date_utc,hour_utc,country,publisher_id
+  ,publisher_name,bid_requests,impressions,clicks,ctr,spend_eur, y quiero que
+  en el output tambien se incluya aparte del csv con el filtro un jsonl con Un
+  objeto JSON por cada línea original descartada, que contenga como mínimo el
+  motivo del descarte, el archivo de origen, el número de línea y la propia
+  línea original.
+
+● Voy a implementar la regla de validación de ts, el mecanismo de descarte con
+  JSONL de rechazados, y la agregación a la tabla final que describes. Empiezo
+  revisando los ficheros actuales antes de editarlos.
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/rec
+       ords.py)
+  ⎿  Added 19 lines, removed 5 lines
+      1 -"""Shared record type passed between pipeline layers."""        
+      1 +"""Shared types passed between pipeline layers."""              
+      2  
+      3  from __future__ import annotations
+      4  
+     ...
+      10  class Record:
+      11      """A single event plus provenance metadata.
+      12  
+      13 -    `payload` is the event's own fields. `source_file`/`line_nu
+         -mber` are kept                                                 
+      14 -    separate from `payload` so cleaning and transformation rule
+         -s only ever                                                    
+      15 -    see real event data, while quarantine/logging can still poi
+         -nt back to                                                     
+      16 -    the exact input line a record came from.                   
+      13 +    `payload` is the event's own fields. Provenance is kept out
+         +side `payload`                                                 
+      14 +    so rules only see event data, while rejections can still po
+         +int back to                                                    
+      15 +    the exact original input line.                             
+      16      """
+      17  
+      18      payload: dict[str, Any] = field(default_factory=dict)
+      19      source_file: str = ""
+      20      line_number: int = 0
+      21 +    raw_line: str = ""                                         
+      22  
+      23      def with_payload(self, payload: dict[str, Any]) -> Record:
+      24          return replace(self, payload=payload)
+      25 +                                                               
+      26 +                                                               
+      27 +@dataclass(frozen=True)                                        
+      28 +class Rejection:                                               
+      29 +    """An original input line that was discarded, and why."""  
+      30 +                                                               
+      31 +    reason: str                                                
+      32 +    source_file: str                                           
+      33 +    line_number: int                                           
+      34 +    raw_line: str                                              
+      35 +                                                               
+      36 +    @classmethod                                               
+      37 +    def of(cls, record: Record, reason: str) -> Rejection:     
+      38 +        return cls(reason, record.source_file, record.line_numb
+         +er, record.raw_line)                                           
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ext
+       raction/base.py)
+  ⎿  Added 11 lines, removed 4 lines
+      1  """Extraction layer: turns raw input files into `Record` objects
+         .
+      2  
+      3  This is the only layer that knows about file formats and I/O. Ev
+         erything
+      4 -downstream (cleaning, transformation, tabulation, writing) works
+        - on                                                             
+      5 -`Record` objects and has no knowledge of where they came from.  
+      4 +downstream works on `Record` objects and has no knowledge of whe
+        +re they                                                         
+      5 +came from.                                                      
+      6  """
+      7  
+      8  from __future__ import annotations
+     ...
+      11  from collections.abc import Iterator
+      12  from pathlib import Path
+      13  
+      14 -from taptap_codetest.records import Record                     
+      14 +from taptap_codetest.records import Record, Rejection          
+      15  
+      16  
+      17  class Extractor(ABC):
+      18 -    """Produces `Record` objects from a given input path."""   
+      18 +    """Produces `Record` objects from a given input path.      
+      19  
+      20 +    Lines that can't be turned into a `Record` are collected in
+         + `rejections`,                                                 
+      21 +    which is complete once the `extract` iterator has been exha
+         +usted.                                                         
+      22 +    """                                                        
+      23 +                                                               
+      24 +    def __init__(self) -> None:                                
+      25 +        self.rejections: list[Rejection] = []                  
+      26 +                                                               
+      27      @abstractmethod
+      28      def extract(self, input_path: Path) -> Iterator[Record]:
+      29          """Yield one `Record` per readable event found under `i
+          nput_path`."""
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ext
+       raction/jsonl_extractor.py)
+  ⎿  Added 18 lines, removed 18 lines
+       3  from __future__ import annotations
+       4  
+       5  import json
+       6 -import logging                                                 
+       6  from collections.abc import Iterator
+       7  from pathlib import Path
+       8  
+       9  from taptap_codetest.extraction.base import Extractor
+      11 -from taptap_codetest.records import Record                     
+      10 +from taptap_codetest.records import Record, Rejection          
+      11  
+      13 -logger = logging.getLogger(__name__)                           
+      12  
+      15 -                                                               
+      13  class JSONLExtractor(Extractor):
+      14      """Reads one JSON object per line from every `*.jsonl` file
+           found
+      15      (recursively) under `input_path`.
+      16  
+      20 -    Lines that aren't valid JSON are not business-rule violatio
+         -ns, they are                                                   
+      21 -    unparsable input, so they're logged and skipped here rather
+         - than passed                                                   
+      22 -    down to the cleaning layer.                                
+      17 +    Lines that aren't a valid JSON object are unparsable input 
+         +rather than                                                    
+      18 +    business-rule violations, so they're rejected here instead 
+         +of being                                                       
+      19 +    passed down to the cleaning layer.                         
+      20      """
+      21  
+      22      def __init__(self, pattern: str = "*.jsonl") -> None:
+      23 +        super().__init__()                                     
+      24          self.pattern = pattern
+      25  
+      26      def extract(self, input_path: Path) -> Iterator[Record]:
+     ...
+      28              yield from self._extract_file(file_path)
+      29  
+      30      def _extract_file(self, file_path: Path) -> Iterator[Record
+          ]:
+      31 +        source = str(file_path)                                
+      32          with file_path.open(encoding="utf-8") as handle:
+      33              for line_number, line in enumerate(handle, start=1)
+          :
+      35 -                line = line.strip()                            
+      36 -                if not line:                                   
+      34 +                raw_line = line.rstrip("\r\n")                 
+      35 +                if not raw_line.strip():                       
+      36                      continue
+      37                  try:
+      39 -                    payload = json.loads(line)                 
+      40 -                except json.JSONDecodeError:                   
+      41 -                    logger.warning(                            
+      42 -                        "Skipping unparsable line %s:%d", file_
+         -path, line_number                                              
+      38 +                    payload = json.loads(raw_line)             
+      39 +                except json.JSONDecodeError as exc:            
+      40 +                    self.rejections.append(                    
+      41 +                        Rejection(f"invalid_json: {exc.msg}", s
+         +ource, line_number, raw_line)                                  
+      42                      )
+      43                      continue
+      45 -                yield Record(                                  
+      46 -                    payload=payload,                           
+      47 -                    source_file=str(file_path),                
+      48 -                    line_number=line_number,                   
+      49 -                )                                              
+      44 +                if not isinstance(payload, dict):              
+      45 +                    self.rejections.append(                    
+      46 +                        Rejection("invalid_json: not an object"
+         +, source, line_number, raw_line)                               
+      47 +                    )                                          
+      48 +                    continue                                   
+      49 +                yield Record(payload, source, line_number, raw_
+         +line)                                                          
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/base.py)
+  ⎿  Added 19 lines, removed 19 lines
+       6  
+       7  from __future__ import annotations
+       8  
+       9 -import logging                                                 
+       9  from abc import ABC, abstractmethod
+      10  from collections.abc import Iterable, Iterator, Sequence
+      11  
+      13 -from taptap_codetest.records import Record                     
+      12 +from taptap_codetest.records import Record, Rejection          
+      13  
+      15 -logger = logging.getLogger(__name__)                           
+      14  
+      17 -                                                               
+      15  class CleaningRule(ABC):
+      16      """A single pass/fail check applied to one record."""
+      17  
+      21 -    name: str = "cleaning_rule"                                
+      22 -                                                               
+      18      @abstractmethod
+      24 -    def keep(self, record: Record) -> bool:                    
+      25 -        """Return True to keep `record`, False to drop it."""  
+      19 +    def check(self, record: Record) -> str | None:             
+      20 +        """Return None to keep `record`, or the rejection reaso
+         +n to drop it."""                                               
+      21  
+      22  
+      23  class Cleaner:
+      29 -    """Applies a sequence of `CleaningRule`s to a stream of rec
+         -ords."""                                                       
+      24 +    """Applies `CleaningRule`s to a stream of records.         
+      25  
+      26 +    Dropped records are collected in `rejections`, which is com
+         +plete once the                                                 
+      27 +    `clean` iterator has been exhausted.                       
+      28 +    """                                                        
+      29 +                                                               
+      30      def __init__(self, rules: Sequence[CleaningRule] | None = N
+          one) -> None:
+      31          self.rules = list(rules) if rules is not None else []
+      32 +        self.rejections: list[Rejection] = []                  
+      33  
+      34      def clean(self, records: Iterable[Record]) -> Iterator[Reco
+          rd]:
+      35          for record in records:
+      36 -            failed = next(                                     
+      37 -                (rule for rule in self.rules if not rule.keep(r
+         -ecord)), None                                                  
+      38 -            )                                                  
+      39 -            if failed is None:                                 
+      36 +            reason = self._first_violation(record)             
+      37 +            if reason is None:                                 
+      38                  yield record
+      39              else:
+      42 -                logger.debug(                                  
+      43 -                    "Dropping record from %s:%d (rule=%s)",    
+      44 -                    record.source_file,                        
+      45 -                    record.line_number,                        
+      46 -                    failed.name,                               
+      47 -                )                                              
+      40 +                self.rejections.append(Rejection.of(record, rea
+         +son))                                                          
+      41 +                                                               
+      42 +    def _first_violation(self, record: Record) -> str | None:  
+      43 +        for rule in self.rules:                                
+      44 +            reason = rule.check(record)                        
+      45 +            if reason is not None:                             
+      46 +                return reason                                  
+      47 +        return None                                            
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tim
+       eutils.py)
+  ⎿  Wrote 55 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/timeutils.py
+       1 """Parsing of the event `ts` field, shared by cleaning and trans
+         formation."""
+       2
+       3 from __future__ import annotations
+       4
+       5 import re
+       6 from datetime import UTC, datetime
+       7 from typing import Any
+       8 from zoneinfo import ZoneInfo
+       9
+     … +46 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/rules/timestamp.py)
+  ⎿  Wrote 19 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/cleaning/rules/timestamp.py
+      1 from __future__ import annotations
+      2
+      3 from taptap_codetest.cleaning.base import CleaningRule
+      4 from taptap_codetest.records import Record
+      5 from taptap_codetest.timeutils import TimestampParseError, parse_
+        ts
+      6
+      7
+      8 class ValidTimestampRule(CleaningRule):
+      9     """Drops events whose `ts` is missing or not in an accepted f
+     … +11 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cle
+       aning/rules/__init__.py)
+  ⎿  Added 5 lines, removed 6 lines
+      1 -"""Concrete `CleaningRule` implementations.                     
+      1 +"""Concrete `CleaningRule` implementations, applied in `DEFAULT_
+        +RULES` order."""                                                
+      2  
+      3 -Each rule lives in its own module and is appended to `DEFAULT_RU
+        -LES` so the                                                     
+      4 -pipeline picks it up automatically. Empty for now.              
+      5 -"""                                                             
+      6 -                                                                
+      3  from taptap_codetest.cleaning.base import CleaningRule
+      4 +from taptap_codetest.cleaning.rules.timestamp import ValidTimest
+        +ampRule                                                         
+      5  
+      9 -DEFAULT_RULES: list[CleaningRule] = []                          
+      6 +DEFAULT_RULES: list[CleaningRule] = [                           
+      7 +    ValidTimestampRule(),                                       
+      8 +]                                                               
+
+● Ahora la transformación que deriva date_utc/hour_utc desde ts, la tabla
+  agregada, la carga de publishers.csv y el writer de rechazados.
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tra
+       nsformation/rules/timestamp.py)
+  ⎿  Wrote 22 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/transformation/rules/timestamp.py
+      1 from __future__ import annotations
+      2
+      3 from taptap_codetest.records import Record
+      4 from taptap_codetest.timeutils import parse_ts
+      5 from taptap_codetest.transformation.base import TransformationRul
+        e
+      6
+      7
+      8 class DeriveUtcDateHourRule(TransformationRule):
+      9     """Adds `date_utc` (YYYY-MM-DD) and `hour_utc` (0-23) from `t
+     … +14 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tra
+       nsformation/rules/__init__.py)
+  ⎿  Added 5 lines, removed 6 lines
+      1 -"""Concrete `TransformationRule` implementations.               
+      1 +"""Concrete `TransformationRule` implementations, applied in `DE
+        +FAULT_RULES` order."""                                          
+      2  
+      3 -Each rule lives in its own module and is appended to `DEFAULT_RU
+        -LES` so the                                                     
+      4 -pipeline picks it up automatically. Empty for now.              
+      5 -"""                                                             
+      6 -                                                                
+      3  from taptap_codetest.transformation.base import TransformationRu
+         le
+      4 +from taptap_codetest.transformation.rules.timestamp import Deriv
+        +eUtcDateHourRule                                                
+      5  
+      9 -DEFAULT_RULES: list[TransformationRule] = []                    
+      6 +DEFAULT_RULES: list[TransformationRule] = [                     
+      7 +    DeriveUtcDateHourRule(),                                    
+      8 +]                                                               
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ref
+       erence.py)
+  ⎿  Wrote 16 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/reference.py
+      1 """Reference (dimension) data used to enrich events."""
+      2
+      3 from __future__ import annotations
+      4
+      5 from pathlib import Path
+      6
+      7 import pandas as pd
+      8
+      9 PUBLISHERS_FILENAME = "publishers.csv"
+     … +7 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tab
+       ular/metrics_tabulator.py)
+  ⎿  Wrote 57 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/tabular/metrics_tabulator.py
+       1 """Hourly metrics per country and publisher."""
+       2
+       3 from __future__ import annotations
+       4
+       5 from collections.abc import Iterable
+       6
+       7 import pandas as pd
+       8
+       9 from taptap_codetest.records import Record
+      10 from taptap_codetest.tabular.base import Tabulator, TableSet
+     … +47 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/tab
+       ular/__init__.py)
+  ⎿  Added 3 lines, removed 2 lines
+      1 -from taptap_codetest.tabular.base import Tabulator              
+      1 +from taptap_codetest.tabular.base import TableSet, Tabulator    
+      2 +from taptap_codetest.tabular.metrics_tabulator import MetricsTab
+        +ulator                                                          
+      3  from taptap_codetest.tabular.tabulator import EventTabulator
+      4  
+      4 -__all__ = ["Tabulator", "EventTabulator"]                       
+      5 +__all__ = ["Tabulator", "TableSet", "EventTabulator", "MetricsTa
+        +bulator"]                                                       
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/rejection_writer.py)
+  ⎿  Wrote 21 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/src
+     /taptap_codetest/writing/rejection_writer.py
+      1 from __future__ import annotations
+      2
+      3 import json
+      4 from collections.abc import Iterable
+      5 from dataclasses import asdict
+      6 from pathlib import Path
+      7
+      8 from taptap_codetest.records import Rejection
+      9
+     … +12 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/wri
+       ting/__init__.py)
+  ⎿  Added 2 lines, removed 1 line
+       1  from taptap_codetest.writing.base import Writer
+       2  from taptap_codetest.writing.csv_writer import CSVWriter
+       3  from taptap_codetest.writing.parquet_writer import ParquetWrite
+          r
+       4 +from taptap_codetest.writing.rejection_writer import RejectionW
+         +riter                                                          
+       5  
+       6  WRITERS: dict[str, type[Writer]] = {
+       7      "csv": CSVWriter,
+       8      "parquet": ParquetWriter,
+       9  }
+      10  
+      10 -__all__ = ["Writer", "CSVWriter", "ParquetWriter", "WRITERS"]  
+      11 +__all__ = ["Writer", "CSVWriter", "ParquetWriter", "RejectionWr
+         +iter", "WRITERS"]                                              
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/pip
+       eline.py)
+  ⎿  Added 9 lines
+      12  from taptap_codetest.tabular.base import Tabulator
+      13  from taptap_codetest.transformation.base import Transformer
+      14  from taptap_codetest.writing.base import Writer
+      15 +from taptap_codetest.writing.rejection_writer import RejectionW
+         +riter                                                          
+      16  
+      17  
+      18  @dataclass
+     ...
+      22      transformer: Transformer
+      23      tabulator: Tabulator
+      24      writer: Writer
+      25 +    rejection_writer: RejectionWriter                          
+      26  
+      27      def run(self, input_path: Path, output_path: Path) -> None:
+      28          records = self.extractor.extract(input_path)
+      29          records = self.cleaner.clean(records)
+      30          records = self.transformer.transform(records)
+      31 +        # build() drains the lazy chain, so rejections are comp
+         +lete afterwards.                                               
+      32          tables = self.tabulator.build(records)
+      33          self.writer.write(tables, output_path)
+      34 +                                                               
+      35 +        rejections = sorted(                                   
+      36 +            [*self.extractor.rejections, *self.cleaner.rejectio
+         +ns],                                                           
+      37 +            key=lambda r: (r.source_file, r.line_number),      
+      38 +        )                                                      
+      39 +        self.rejection_writer.write(rejections, output_path)   
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cli
+       .py)
+  ⎿  Added 13 lines, removed 6 lines
+      10  from taptap_codetest.cleaning import Cleaner
+      11  from taptap_codetest.extraction import JSONLExtractor
+      12  from taptap_codetest.pipeline import Pipeline
+      13 -from taptap_codetest.tabular import EventTabulator             
+      13 +from taptap_codetest.reference import load_publishers          
+      14 +from taptap_codetest.tabular import MetricsTabulator           
+      15  from taptap_codetest.transformation import DEFAULT_RULES as DEF
+          AULT_TRANSFORMATION_RULES
+      16  from taptap_codetest.transformation import Transformer
+      16 -from taptap_codetest.writing import WRITERS                    
+      17 +from taptap_codetest.writing import WRITERS, RejectionWriter   
+      18  
+      19  
+      20  def parse_args(argv: list[str] | None = None) -> argparse.Names
+          pace:
+      21      parser = argparse.ArgumentParser(prog="taptap-codetest")
+      22      parser.add_argument(
+      22 -        "--input", required=True, type=Path, help="Directory co
+         -ntaining *.jsonl event files"                                  
+      23 +        "--input", required=True, type=Path, help="Directory wi
+         +th *.jsonl events and publishers.csv"                          
+      24      )
+      25      parser.add_argument(
+      26          "--output", required=True, type=Path, help="Directory t
+          o write the resulting tables to"
+     ...
+      35      return parser.parse_args(argv)
+      36  
+      37  
+      37 -def build_pipeline(output_format: str) -> Pipeline:            
+      38 +def build_pipeline(input_path: Path, output_format: str = "csv"
+         +) -> Pipeline:                                                 
+      39      return Pipeline(
+      40          extractor=JSONLExtractor(),
+      41          cleaner=Cleaner(rules=DEFAULT_CLEANING_RULES),
+      42          transformer=Transformer(rules=DEFAULT_TRANSFORMATION_RU
+          LES),
+      42 -        tabulator=EventTabulator(),                            
+      43 +        tabulator=MetricsTabulator(publishers=load_publishers(i
+         +nput_path)),                                                   
+      44          writer=WRITERS[output_format](),
+      45 +        rejection_writer=RejectionWriter(),                    
+      46      )
+      47  
+      48  
+     ...
+      50      args = parse_args(argv)
+      51      logging.basicConfig(level=args.log_level)
+      52  
+      51 -    pipeline = build_pipeline(args.format)                     
+      53 +    pipeline = build_pipeline(args.input, args.format)         
+      54      pipeline.run(args.input, args.output)
+      55  
+      56 +    logging.getLogger(__name__).info(                          
+      57 +        "Rejected %d lines",                                   
+      58 +        len(pipeline.extractor.rejections) + len(pipeline.clean
+         +er.rejections),                                                
+      59 +    )                                                          
+      60  
+      61 +                                                               
+      62  if __name__ == "__main__":
+      63      main()
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ta
+        bular/metrics_tabulator.py)
+  ⎿  Added 1 line, removed 1 line
+      11  
+      12  GROUP_KEYS = ["date_utc", "hour_utc", "country", "publisher_id"
+          ]
+      13  METRIC_COLUMNS = [
+      14 -    *GROUP_KEYS[:4],                                           
+      14 +    *GROUP_KEYS,                                               
+      15      "publisher_name",
+      16      "bid_requests",
+      17      "impressions",
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/tests/test_timeutils.py
+       )
+  ⎿  Wrote 45 lines to taptapnetworks-taptap-codetest-data-6f9357aafa3d/tes
+     ts/test_timeutils.py
+       1 from datetime import UTC, datetime
+       2
+       3 import pytest
+       4
+       5 from taptap_codetest.timeutils import TimestampParseError, parse
+         _ts
+       6
+       7 EXPECTED = datetime(2026, 9, 1, 10, 0, 0, tzinfo=UTC)
+       8
+       9
+     … +36 lines (ctrl+o to expand)
+
+● Write(taptapnetworks-taptap-codetest-data-6f9357aafa3d/tests/test_pipeline.py)
+  ⎿  Added 56 lines, removed 9 lines
+       1 +import json                                                    
+       2 +                                                               
+       3  import pandas as pd
+       4  
+       5  from taptap_codetest.cli import build_pipeline
+       6  
+       7  
+       6 -def test_pipeline_runs_end_to_end(tmp_path):                   
+       8 +def _event(event_id, event_type, ts, price=None):              
+       9 +    return json.dumps(                                         
+      10 +        {                                                      
+      11 +            "event_id": event_id,                              
+      12 +            "event_type": event_type,                          
+      13 +            "ts": ts,                                          
+      14 +            "publisher_id": "pub_001",                         
+      15 +            "country": "ES",                                   
+      16 +            "price_micros": price,                             
+      17 +        }                                                      
+      18 +    )                                                          
+      19 +                                                               
+      20 +                                                               
+      21 +def test_pipeline_aggregates_and_writes_rejections(tmp_path):  
+      22      input_dir = tmp_path / "in"
+      23      output_dir = tmp_path / "out"
+      24      input_dir.mkdir()
+      10 -                                                               
+      11 -    (input_dir / "events.jsonl").write_text(                   
+      12 -        '{"event_id": "br_1", "event_type": "bid_request"}\n'  
+      13 -        '{"event_id": "im_1", "event_type": "impression"}\n'   
+      25 +    (input_dir / "publishers.csv").write_text(                 
+      26 +        "publisher_id,publisher_name,tier\npub_001,El Diario Di
+         +gital,premium\n"                                               
+      27      )
+      28 +    bad_ts_line = _event("br_3", "bid_request", "2026/09/01 10:
+         +00")                                                           
+      29 +    lines = [                                                  
+      30 +        _event("br_1", "bid_request", "2026-09-01T10:15:00Z"), 
+      31 +        _event("br_2", "bid_request", "2026-09-01 12:30:00"),  
+         +# Madrid -> 10h UTC                                            
+      32 +        _event("im_1", "impression", 1788257700000, price=25000
+         +0),                                                            
+      33 +        _event("im_2", "impression", "1788257700000", price=750
+         +000),                                                          
+      34 +        _event("ck_1", "click", "2026-09-01T12:45:00+02:00"),  
+      35 +        bad_ts_line,                                           
+      36 +        '{"event_id": "br_4", event_type: "bid_request"}',     
+      37 +    ]                                                          
+      38 +    (input_dir / "events.jsonl").write_text("\n".join(lines) + 
+         +"\n")                                                          
+      39  
+      16 -    pipeline = build_pipeline(output_format="csv")             
+      17 -    pipeline.run(input_dir, output_dir)                        
+      40 +    build_pipeline(input_dir).run(input_dir, output_dir)       
+      41  
+      19 -    result = pd.read_csv(output_dir / "events.csv")            
+      20 -    assert list(result["event_id"]) == ["br_1", "im_1"]        
+      42 +    metrics = pd.read_csv(output_dir / "metrics.csv")          
+      43 +    assert metrics.to_dict("records") == [                     
+      44 +        {                                                      
+      45 +            "date_utc": "2026-09-01",                          
+      46 +            "hour_utc": 10,                                    
+      47 +            "country": "ES",                                   
+      48 +            "publisher_id": "pub_001",                         
+      49 +            "publisher_name": "El Diario Digital",             
+      50 +            "bid_requests": 2,                                 
+      51 +            "impressions": 2,                                  
+      52 +            "clicks": 1,                                       
+      53 +            "ctr": 0.5,                                        
+      54 +            "spend_eur": 1.0,                                  
+      55 +        }                                                      
+      56 +    ]                                                          
+      57 +                                                               
+      58 +    rejected = [                                               
+      59 +        json.loads(line)                                       
+      60 +        for line in (output_dir / "rejected.jsonl").read_text()
+         +.splitlines()                                                  
+      61 +    ]                                                          
+      62 +    assert [(r["line_number"], r["reason"].split(":")[0]) for r
+         + in rejected] == [                                             
+      63 +        (6, "invalid_ts"),                                     
+      64 +        (7, "invalid_json"),                                   
+      65 +    ]                                                          
+      66 +    assert rejected[0]["raw_line"] == bad_ts_line              
+      67 +    assert rejected[0]["source_file"].endswith("events.jsonl") 
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● All 17 tests pass. Now I'll run it against the real data.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The run against the real data crashes because some price_micros values aren't
+  numeric. Checking which values are there:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The price_micros column has dirty values like "N/A" and "1.2.3", which I'm
+  converting to numbers for now and will clean up later. I also found and am
+  fixing a bug where the extractor read its own output folder back in as input,
+  so it will now read only the top level of --input. · summary
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ta
+        bular/metrics_tabulator.py)  ⎿  Added 3 lines, removed 1 line
+      38              bid_requests=(event_type == "bid_request").astype(i
+          nt),
+      39              impressions=is_impression.astype(int),
+      40              clicks=(event_type == "click").astype(int),
+      41 -            spend_micros=events["price_micros"].where(is_impres
+         -sion, 0).fillna(0),                                            
+      41 +            spend_micros=pd.to_numeric(events["price_micros"], 
+         +errors="coerce")                                               
+      42 +            .where(is_impression, 0)                           
+      43 +            .fillna(0),                                        
+      44          )
+      45  
+      46          metrics = (
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ex
+        traction/jsonl_extractor.py)
+  ⎿  Added 3 lines, removed 2 lines
+      11  
+      12  
+      13  class JSONLExtractor(Extractor):
+      14 -    """Reads one JSON object per line from every `*.jsonl` file
+         - found                                                         
+      15 -    (recursively) under `input_path`.                          
+      14 +    """Reads one JSON object per line from every `*.jsonl` file
+         + directly                                                      
+      15 +    inside `input_path` (not recursive, so an output dir nested
+         + in the input                                                  
+      16 +    dir isn't read back as input).                             
+      17  
+      18      Lines that aren't a valid JSON object are unparsable input 
+          rather than
+      19      business-rule violations, so they're rejected here instead 
+          of being
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ex
+        traction/jsonl_extractor.py)
+  ⎿  Added 1 line, removed 1 line
+      25          self.pattern = pattern
+      26  
+      27      def extract(self, input_path: Path) -> Iterator[Record]:
+      28 -        for file_path in sorted(input_path.rglob(self.pattern))
+         -:                                                              
+      28 +        for file_path in sorted(input_path.glob(self.pattern)):
+      29              yield from self._extract_file(file_path)
+      30  
+      31      def _extract_file(self, file_path: Path) -> Iterator[Record
+          ]:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● The rule works, but some ts values produce dates in 1969/1970. Checking what
+  those values are:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● I've added the ts format check as the first cleaning rule, and each run now
+  writes metrics.csv (with your 10 columns) plus rejected.jsonl to the output
+  folder. The 17 tests pass. Running uv run taptap-codetest --input data
+  --output <out> on the real data gives 5,444 rows in metrics.csv and 22
+  rejected lines.
+
+  Accepted ts formats (timeutils.py):
+  - ISO-8601 ending in Z, or with an explicit offset.
+  - Epoch milliseconds, as a number or as a string of digits.
+  - YYYY-MM-DD HH:MM:SS with no zone, read as Europe/Madrid time, so summer and
+    winter time are both handled.
+  - Anything else is rejected: ISO without a zone, other separators, impossible
+    dates, booleans, empty strings. The rule itself is in
+    cleaning/rules/timestamp.py, and a transformation rule uses the same parser
+    to fill date_utc and hour_utc.
+
+  rejected.jsonl: one object per discarded line, with reason, source_file,
+  line_number and raw_line. Lines that aren't valid JSON go in it too (12 of
+  them), since they are also discarded original lines. The other 10 are 6 with
+  an empty ts and 4 with no ts.
+
+  metrics.csv: one row per date, UTC hour, country and publisher. publisher_name
+  comes from publishers.csv in the input folder.
+  - ctr is clicks divided by impressions, and 0 when there are no impressions.
+  - spend_eur is the sum of price_micros over impressions, divided by 1,000,000.
+    That assumes price_micros is already in euros.
+
+  Interface changes and fixes:
+  - Each cleaning rule now returns the reason for dropping a record (or None to
+    keep it), and each Record keeps its original line so it can go into the
+    rejected file.
+  - I fixed a bug: the extractor used to search --input recursively, so with
+    --output data/output the next run would have read rejected.jsonl back in as
+    events. It now reads only the top level of --input.
+
+  Things you should know before the next rules:
+  - data/events-test.jsonl (the file you have open) is in data/, so it gets
+    processed. Its 30 lines are copies of real events and are counted twice.
+    Move it out if it's just a test file.
+  - Some timestamps pass the format check but make no sense: 0, -1,
+    1970-01-01T00:00:00Z and 2099-04-11.... That's why rows dated 1969 and 1970
+    appear. Rejecting them would be a separate date-range rule.
+  - country comes in dirty (" DE ", "it", "ESP"), so the same country is split
+    across several rows.
+  - event_type has variants (BID_REQUEST, Impression, imp) that aren't counted
+    yet.
+  - price_micros has text values ("N/A", " 508500 ", "627.9e3", "1.2.3"). For
+    now the table layer turns those it can't read into a number into 0; a proper
+    rule should handle them.
+
+  The next rules would be the date range for ts, then cleaning up country,
+  event_type and price_micros.
+
+❯ /model default
+  ⎿  Set model to claude-opus-5-5
+
+❯ en el fichero events-test hay una fila que incumple lel formato, la ultima.
+  sin embargo no se está guardando ningun error. tampoco se está guardando la
+  salida en ningun csv
+
+● Voy a mirar la última línea de events-test.jsonl y lo que hay en data/output.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● Failed to authenticate. API Error: 403 Attention Required! |
+  Cloudflare
+
+❯ en el fichero events-test hay una fila que incumple lel formato, la ultima.
+  sin embargo no se está guardando ningun error. tampoco se está guardando la
+  salida en ningun csv
+
+● Hay una carpeta out/ en la raíz. Miro su contenido para ver con qué se
+  ejecutó.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● Failed to authenticate. API Error: 403 Attention Required! |
+  Cloudflare
+
+❯ en el fichero events-test hay una fila que incumple lel formato, la ultima.
+  sin embargo no se está guardando ningun error. tampoco se está guardando la
+  salida en ningun csv
+
+● The extractor came back empty because it only accepted a directory, so passing
+  it the test file silently found nothing. I'm changing --input to take either
+  a file or a directory, with a clear error when the path is missing. · summary
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ex
+        traction/jsonl_extractor.py)
+  ⎿  Added 3 lines, removed 3 lines
+      11  
+      12  
+      13  class JSONLExtractor(Extractor):
+      14 -    """Reads one JSON object per line from every `*.jsonl` file
+         - directly                                                      
+      15 -    inside `input_path` (not recursive, so an output dir nested
+         - in the input                                                  
+      16 -    dir isn't read back as input).                             
+      14 +    """Reads one JSON object per line from `input_path` if it's
+         + a file, or                                                    
+      15 +    from every `*.jsonl` file directly inside it if it's a dire
+         +ctory (not                                                     
+      16 +    recursive, so an output dir nested in the input dir isn't r
+         +ead back).                                                     
+      17  
+      18      Lines that aren't a valid JSON object are unparsable input 
+          rather than
+      19      business-rule violations, so they're rejected here instead 
+          of being
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/ex
+        traction/jsonl_extractor.py)
+  ⎿  Added 5 lines, removed 1 line
+      25          self.pattern = pattern
+      26  
+      27      def extract(self, input_path: Path) -> Iterator[Record]:
+      28 -        for file_path in sorted(input_path.glob(self.pattern)):
+      28 +        if input_path.is_file():                               
+      29 +            files = [input_path]                               
+      30 +        else:                                                  
+      31 +            files = sorted(input_path.glob(self.pattern))      
+      32 +        for file_path in files:                                
+      33              yield from self._extract_file(file_path)
+      34  
+      35      def _extract_file(self, file_path: Path) -> Iterator[Record
+          ]:
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/re
+        ference.py)
+  ⎿  Added 2 lines, removed 1 line
+      10  
+      11  
+      12  def load_publishers(input_path: Path) -> pd.DataFrame:
+      13 -    csv_path = input_path / PUBLISHERS_FILENAME                
+      13 +    input_dir = input_path.parent if input_path.is_file() else 
+         +input_path                                                     
+      14 +    csv_path = input_dir / PUBLISHERS_FILENAME                 
+      15      if not csv_path.exists():
+      16          return pd.DataFrame(columns=["publisher_id", "publisher
+          _name"])
+      17      return pd.read_csv(csv_path, usecols=["publisher_id", "publ
+          isher_name"])
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cl
+        i.py)
+  ⎿  Added 4 lines, removed 1 line
+      20  def parse_args(argv: list[str] | None = None) -> argparse.Names
+          pace:
+      21      parser = argparse.ArgumentParser(prog="taptap-codetest")
+      22      parser.add_argument(
+      23 -        "--input", required=True, type=Path, help="Directory wi
+         -th *.jsonl events and publishers.csv"                          
+      23 +        "--input",                                             
+      24 +        required=True,                                         
+      25 +        type=Path,                                             
+      26 +        help="A .jsonl file, or a directory of *.jsonl files; p
+         +ublishers.csv is read from the same directory",                
+      27      )
+      28      parser.add_argument(
+      29          "--output", required=True, type=Path, help="Directory t
+          o write the resulting tables to"
+
+● Update(taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/cl
+        i.py)
+  ⎿  Added 4 lines, removed 1 line
+      35          help="Output table format (default: csv)",
+      36      )
+      37      parser.add_argument("--log-level", default="INFO")
+      38 -    return parser.parse_args(argv)                             
+      38 +    args = parser.parse_args(argv)                             
+      39 +    if not args.input.exists():                                
+      40 +        parser.error(f"--input path does not exist: {args.input
+         +}")                                                            
+      41 +    return args                                                
+      42  
+      43  
+      44  def build_pipeline(input_path: Path, output_format: str = "csv"
+          ) -> Pipeline:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Failed to authenticate. API Error: 403 Attention Required! |
+  Cloudflare

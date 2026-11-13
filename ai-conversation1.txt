@@ -1,0 +1,2503 @@
+
+❯ tengo una serie de ficheros .jsonl dentro de la carpeta data que representan
+  eventos. quiero crear un programa python que los extraiga, limpie, transforme
+  y convierta a tablas, con la siguiente ejecución: uv run taptap-codetest
+  --input <data> --output <out>. quiero que me ayudes a crear la estructura del
+  proyecto, teniendo en cuenta que habrá una capa de extracción, una capa de
+  limpieza (borrado en base a unas reglas), una capa de transformación
+  (modificacion de valores), una capa para transformar a formato tabular y una
+  capa de escritura. con esto quiero conseguir desacoplamiento entre los
+  diferentes modulos. mas adelante me ayudaras a implementar las diferentes
+  reglas, por ahora quiero únicamente la estructura
+
+  Read 1 file, listed 2 directories, ran 1 shell command (ctrl+o to expand)
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ en el fichero events-test hay una fila que incumple lel formato, la ultima.
+  sin embargo no se está guardando ningun error. tampoco se está guardando la
+  salida en ningun csv
+
+  Searched for 2 patterns, read 3 files, listed 3 directories, ran 14 shell commands (ctrl+o to expand)
+
+● No hay .vscode ni workspace raro que pueda desviar rutas. He probado el
+  escenario exacto que describes y no logro reproducir el fallo:
+
+  Read 1 file (ctrl+o to expand)
+
+● He revisado los cinco escenarios posibles y en todos el comportamiento es el
+  esperado:
+
+  1. Archivo único (--input data/events-test.jsonl)
+  2. Carpeta aislada con solo ese fichero
+  3. Carpeta completa (--input data, mezclado con los otros .jsonl)
+  4. Vía .venv/bin/taptap-codetest directo
+  5. Vía uv run taptap-codetest (como pide el enunciado)
+
+  En todos los casos:
+  - La línea 30 (ts: "178822-4399000") se rechaza con invalid_ts: unrecognized
+    ts format y aparece en rejected.jsonl.
+  - metrics.csv se escribe con las 29 filas válidas restantes.
+  - out/rejected.jsonl y out/metrics.csv que ya tienes en el proyecto (de tu
+    última ejecución, timestamp 10:51) confirman exactamente esto.
+  - Los 17 tests de pytest pasan.
+
+  No consigo reproducir "no se guarda ningún error / ningún csv" con el estado
+  actual del código y del fichero. Antes de seguir investigando a ciegas, dime:
+
+● User answered Claude's questions:
+  ⎿  · ¿Cómo estás comprobando que no se guarda nada? Esto me ayuda a reproducir
+     exactamente tu caso. →  uv run taptap-codetest --input
+     data/events-test.jsonl --output out
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Con ese comando exacto, ejecutado ahora mismo desde la raíz del proyecto,
+  funciona correctamente:
+
+  - Log: Rejected 1 lines
+  - out/rejected.jsonl contiene la línea 30 rechazada por invalid_ts
+  - out/metrics.csv tiene las 29 filas válidas restantes
+
+  No he tocado el código, solo he vuelto a ejecutar tu comando (borrando el out/
+  anterior, que es output generado, no algo que hubieras escrito a mano). Es
+  posible que lo que viste fuera anterior a algún cambio ya aplicado en
+  cleaning/rules/timestamp.py (quizá en una sesión previa), o que al ejecutarlo
+  tú el entorno .venv estuviera desincronizado y uv run necesitara
+  resincronizar.
+
+  ¿Puedes volver a ejecutar uv run taptap-codetest --input
+  data/events-test.jsonl --output out en tu terminal ahora y decirme si ves el
+  mismo resultado? Si sigue fallando para ti pero no para mí, sería útil ver el
+  mensaje/traceback completo que te aparece en consola.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl in the IDE. This may
+  or may not be related to the current task.</ide_opened_file>
+
+❯ ahora quiero añadir una nueva regla de limpieza. quiero que si hay doso mas
+  lines en el fichero de entrada que sean identicas se borren las que sobren y
+  se mantenga unicamente la primera line
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+● Voy a añadir la regla como un nuevo módulo de limpieza con estado propio
+  (necesita recordar qué líneas ya ha visto), y ajustar DEFAULT_RULES para que
+  cada ejecución del pipeline parta de reglas con estado limpio.
+
+● Write(src/taptap_codetest/cleaning/rules/duplicate.py)
+  ⎿  Wrote 25 lines to src/taptap_codetest/cleaning/rules/duplicate.py
+       1 from __future__ import annotations
+       2
+       3 from taptap_codetest.cleaning.base import CleaningRule
+       4 from taptap_codetest.records import Record
+       5
+       6
+       7 class DuplicateLineRule(CleaningRule):
+       8     """Drops a record whose raw line already appeared earlier in
+          the run.
+       9
+     … +16 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/cleaning/rules/__init__.py)
+  ⎿  Added 14 lines, removed 4 lines
+       1 -"""Concrete `CleaningRule` implementations, applied in `DEFAULT
+         -_RULES` order."""                                              
+       1 +"""Concrete `CleaningRule` implementations, applied in `default
+         +_rules()` order."""                                            
+       2  
+       3  from taptap_codetest.cleaning.base import CleaningRule
+       4 +from taptap_codetest.cleaning.rules.duplicate import DuplicateL
+         +ineRule                                                        
+       5  from taptap_codetest.cleaning.rules.timestamp import ValidTimes
+          tampRule
+       6  
+       6 -DEFAULT_RULES: list[CleaningRule] = [                          
+       7 -    ValidTimestampRule(),                                      
+       8 -]                                                              
+       7 +                                                               
+       8 +def default_rules() -> list[CleaningRule]:                     
+       9 +    """Fresh rule instances for one pipeline run.              
+      10 +                                                               
+      11 +    `DuplicateLineRule` carries per-run state (the lines it has
+         + seen), so                                                     
+      12 +    it can't be shared, module-level, across runs the way a sta
+         +teless rule                                                    
+      13 +    could — each call here returns its own instance.           
+      14 +    """                                                        
+      15 +    return [                                                   
+      16 +        DuplicateLineRule(),                                   
+      17 +        ValidTimestampRule(),                                  
+      18 +    ]                                                          
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/cleaning/__init__.py)
+  ⎿  Added 2 lines, removed 2 lines
+      1  from taptap_codetest.cleaning.base import Cleaner, CleaningRule
+      2 -from taptap_codetest.cleaning.rules import DEFAULT_RULES        
+      2 +from taptap_codetest.cleaning.rules import default_rules        
+      3  
+      4 -__all__ = ["Cleaner", "CleaningRule", "DEFAULT_RULES"]          
+      4 +__all__ = ["Cleaner", "CleaningRule", "default_rules"]          
+
+● Ahora actualizo cli.py para usar la factoría en lugar de una lista compartida.
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+       6  import logging
+       7  from pathlib import Path
+       8  
+       9 -from taptap_codetest.cleaning import DEFAULT_RULES as DEFAULT_C
+         -LEANING_RULES                                                  
+       9  from taptap_codetest.cleaning import Cleaner
+      10 +from taptap_codetest.cleaning import default_rules as default_c
+         +leaning_rules                                                  
+      11  from taptap_codetest.extraction import JSONLExtractor
+      12  from taptap_codetest.pipeline import Pipeline
+      13  from taptap_codetest.reference import load_publishers
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+      44  def build_pipeline(input_path: Path, output_format: str = "csv"
+          ) -> Pipeline:
+      45      return Pipeline(
+      46          extractor=JSONLExtractor(),
+      47 -        cleaner=Cleaner(rules=DEFAULT_CLEANING_RULES),         
+      47 +        cleaner=Cleaner(rules=default_cleaning_rules()),       
+      48          transformer=Transformer(rules=DEFAULT_TRANSFORMATION_RU
+          LES),
+      49          tabulator=MetricsTabulator(publishers=load_publishers(i
+          nput_path)),
+      50          writer=WRITERS[output_format](),
+
+  Read 1 file (ctrl+o to expand)
+
+● Ahora añado tests dedicados a la nueva regla, tanto a nivel unitario como en
+  el test de pipeline end-to-end existente.
+
+● Write(tests/test_cleaning.py)
+  ⎿  Wrote 42 lines to tests/test_cleaning.py
+       1 from taptap_codetest.cleaning.rules.duplicate import DuplicateLi
+         neRule
+       2 from taptap_codetest.records import Record
+       3
+       4
+       5 def _record(raw_line, source_file="events.jsonl", line_number=1)
+         :
+       6     return Record(payload={}, source_file=source_file, line_numb
+         er=line_number, raw_line=raw_line)
+       7
+     … +35 lines (ctrl+o to expand)
+
+● Ahora añado al test de pipeline end-to-end una línea duplicada byte a byte
+  para comprobar que se descarta y no infla las métricas.
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 3 lines, removed 1 line
+      26          "publisher_id,publisher_name,tier\npub_001,El Diario Di
+          gital,premium\n"
+      27      )
+      28      bad_ts_line = _event("br_3", "bid_request", "2026/09/01 10:
+          00")
+      29 +    redelivered_line = _event("br_1", "bid_request", "2026-09-0
+         +1T10:15:00Z")                                                  
+      30      lines = [
+      30 -        _event("br_1", "bid_request", "2026-09-01T10:15:00Z"), 
+      31 +        redelivered_line,                                      
+      32          _event("br_2", "bid_request", "2026-09-01 12:30:00"),  
+          # Madrid -> 10h UTC
+      33          _event("im_1", "impression", 1788257700000, price=25000
+          0),
+      34          _event("im_2", "impression", "1788257700000", price=750
+          000),
+      35          _event("ck_1", "click", "2026-09-01T12:45:00+02:00"),
+      36          bad_ts_line,
+      37          '{"event_id": "br_4", event_type: "bid_request"}',
+      38 +        redelivered_line,  # at-least-once redelivery of the fi
+         +rst line, byte-identical                                       
+      39      ]
+      40      (input_dir / "events.jsonl").write_text("\n".join(lines) + 
+          "\n")
+      41  
+
+● Update(tests/test_pipeline.py)  ⎿  Added 2 lines
+      64      assert [(r["line_number"], r["reason"].split(":")[0]) for r
+           in rejected] == [
+      65          (6, "invalid_ts"),
+      66          (7, "invalid_json"),
+      67 +        (8, "duplicate_line"),                                 
+      68      ]
+      69      assert rejected[0]["raw_line"] == bad_ts_line
+      70      assert rejected[0]["source_file"].endswith("events.jsonl")
+      71 +    assert rejected[2]["raw_line"] == redelivered_line         
+
+● Ahora ejecuto los tests y una pasada real sobre events-test.jsonl para
+  confirmar que todo sigue funcionando.
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● He añadido la regla de deduplicación. Resumen de lo hecho:
+
+  Nuevo módulo src/taptap_codetest/cleaning/rules/duplicate.py —
+  DuplicateLineRule: recuerda cada raw_line que ya ha visto (con su
+  fichero/línea de origen) y rechaza cualquier línea posterior cuyo texto sea
+  exactamente igual, con motivo duplicate_line: duplicate of <fichero>:<línea>.
+
+  Cambio necesario en la fábrica de reglas — esta regla tiene estado (un
+  diccionario de líneas vistas), a diferencia de ValidTimestampRule. Antes
+  DEFAULT_RULES era una lista de instancias compartida a nivel de módulo;
+  reutilizar esa misma instancia en varias ejecuciones dentro del mismo proceso
+  (como hace la suite de tests) habría hecho que una ejecución "recordara"
+  líneas de la anterior. Por eso convertí DEFAULT_RULES en default_rules(), una
+  función que devuelve instancias nuevas en cada llamada — así cada ejecución
+  del pipeline parte de cero. Actualicé cleaning/rules/__init__.py,
+  cleaning/__init__.py y cli.py en consecuencia. El orden es DuplicateLineRule
+  antes de ValidTimestampRule: las redelivery no deberían ni llegar a validarse.
+
+  Tests — tests/test_cleaning.py (5 tests unitarios: primera ocurrencia se
+  queda, repetición en el mismo fichero, repetición entre ficheros distintos,
+  líneas distintas no chocan, y que una instancia nueva no recuerda nada de
+  ejecuciones anteriores) y extendí el test end-to-end en test_pipeline.py con
+  una línea redelivered byte-idéntica, comprobando que se descarta y no infla
+  las métricas agregadas.
+
+  Verificado: 22/22 tests pasan, y dos ejecuciones separadas de uv run
+  taptap-codetest --input data --output <out> producen salida byte-idéntica
+  (dedup real detectado entre events-test.jsonl y events_2026-09-01.jsonl, que
+  comparten líneas).
+
+❯ quiero ademas en la rejection la hora de la ultima reject
+
+● User declined to answer questions
+  ⎿  · ¿A qué "hora" te refieres exactamente para añadir a la rejection? Esto
+     importa porque el enunciado exige que dos ejecuciones sobre el mismo input
+     produzcan un `out/` byte-idéntico (prohibido usar hora de reloj /
+     wall-clock en la salida). (La hora de reloj real del rechazo (cuando corre
+     el pipeline) / El campo ingested_at del evento rechazado (Recomendado) / El
+     campo ts del evento rechazado (si se pudo leer) / Otra cosa: quiero
+     explicarlo yo)
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl in the IDE. This may
+  or may not be related to the current task.</ide_opened_file>
+
+❯ quiero una nueva regla de limpieza. en esta nueva regla se revisara el campo
+  price_micros, unicamente para eventos de tipo impression. se debe comprobar
+  que se pueda parsear como int, float, string o notacion cientifica (1.2e3) y
+  ademas debe ser extrictamente mayor que cero
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ quiero una nueva regla de limpieza. en esta nueva regla se revisara el campo
+  price_micros, unicamente para eventos de tipo impression. se debe comprobar
+  que se pueda parsear como int, float, string o notacion cientifica (1.2e3) y
+  ademas debe ser extrictamente mayor que cero. si el evento no es de tipo
+  impression el campo se ignorará y no se realizará esta validacion
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Failed to authenticate. API Error: 403 Attention Required! |
+  Cloudflare
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl in the IDE. This may
+  or may not be related to the current task.</ide_opened_file>
+
+❯ quiero una nueva regla de limpieza. en esta nueva regla se revisara el campo
+  price_micros, unicamente para eventos de tipo impression. se debe comprobar
+  que se pueda parsear como int, float, string o notacion cientifica (1.2e3) y
+  ademas debe ser extrictamente mayor que cero. si el evento no es de tipo
+  impression el campo se ignorará y no se realizará esta validacion
+
+  Read 2 files (ctrl+o to expand)
+
+● Write(src/taptap_codetest/priceutils.py)
+  ⎿  Wrote 34 lines to src/taptap_codetest/priceutils.py
+       1 """Parsing of the event `price_micros` field, shared by cleaning
+          and transformation."""
+       2
+       3 from __future__ import annotations
+       4
+       5 import math
+       6 from typing import Any
+       7
+       8
+       9 class PriceParseError(ValueError):
+     … +25 lines (ctrl+o to expand)
+
+● Write(src/taptap_codetest/cleaning/rules/price.py)
+  ⎿  Wrote 25 lines to src/taptap_codetest/cleaning/rules/price.py
+       1 from __future__ import annotations
+       2
+       3 from taptap_codetest.cleaning.base import CleaningRule
+       4 from taptap_codetest.priceutils import PriceParseError, parse_pr
+         ice_micros
+       5 from taptap_codetest.records import Record
+       6
+       7
+       8 class ValidImpressionPriceRule(CleaningRule):
+       9     """Drops impressions whose `price_micros` can't be parsed or
+     … +17 lines (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cleaning/rules/__init__.py)
+  ⎿  Added 2 lines
+      2  
+      3  from taptap_codetest.cleaning.base import CleaningRule
+      4  from taptap_codetest.cleaning.rules.duplicate import DuplicateLi
+         neRule
+      5 +from taptap_codetest.cleaning.rules.price import ValidImpression
+        +PriceRule                                                       
+      6  from taptap_codetest.cleaning.rules.timestamp import ValidTimest
+         ampRule
+      7  
+      8  
+     ...
+      16      return [
+      17          DuplicateLineRule(),
+      18          ValidTimestampRule(),
+      19 +        ValidImpressionPriceRule(),                            
+      20      ]
+
+● Ahora añado tests dedicados (unitarios para
+  ValidImpressionPriceRule/parse_price_micros, y amplío el test end-to-end).
+
+● Write(tests/test_priceutils.py)
+  ⎿  Wrote 40 lines to tests/test_priceutils.py
+       1 import pytest
+       2
+       3 from taptap_codetest.priceutils import PriceParseError, parse_pr
+         ice_micros
+       4
+       5
+       6 @pytest.mark.parametrize(
+       7     ("value", "expected"),
+       8     [
+       9         (250000, 250000.0),
+     … +31 lines (ctrl+o to expand)
+
+● Write(tests/test_cleaning.py)
+  ⎿  Added 36 lines
+      1  from taptap_codetest.cleaning.rules.duplicate import DuplicateLi
+         neRule
+      2 +from taptap_codetest.cleaning.rules.price import ValidImpression
+        +PriceRule                                                       
+      3  from taptap_codetest.records import Record
+      4  
+      5  
+     ...
+      41  
+      42      second_run = DuplicateLineRule()
+      43      assert second_run.check(_record(line)) is None
+      44 +                                                               
+      45 +                                                               
+      46 +def _event_record(event_type, price_micros):                   
+      47 +    return Record(payload={"event_type": event_type, "price_mic
+         +ros": price_micros})                                           
+      48 +                                                               
+      49 +                                                               
+      50 +def test_impression_with_valid_price_is_kept():                
+      51 +    rule = ValidImpressionPriceRule()                          
+      52 +    for price in (250000, 250000.5, "250000", "1.2e3"):        
+      53 +        assert rule.check(_event_record("impression", price)) i
+         +s None                                                         
+      54 +                                                               
+      55 +                                                               
+      56 +def test_impression_with_unparseable_price_is_rejected():      
+      57 +    rule = ValidImpressionPriceRule()                          
+      58 +    reason = rule.check(_event_record("impression", "not-a-numb
+         +er"))                                                          
+      59 +    assert reason.startswith("invalid_price:")                 
+      60 +                                                               
+      61 +                                                               
+      62 +def test_impression_with_missing_price_is_rejected():          
+      63 +    rule = ValidImpressionPriceRule()                          
+      64 +    reason = rule.check(_event_record("impression", None))     
+      65 +    assert reason.startswith("invalid_price:")                 
+      66 +                                                               
+      67 +                                                               
+      68 +def test_impression_with_zero_or_negative_price_is_rejected(): 
+      69 +    rule = ValidImpressionPriceRule()                          
+      70 +    assert rule.check(_event_record("impression", 0)).startswit
+         +h("invalid_price:")                                            
+      71 +    assert rule.check(_event_record("impression", -1)).startswi
+         +th("invalid_price:")                                           
+      72 +                                                               
+      73 +                                                               
+      74 +def test_price_is_ignored_on_non_impression_events():          
+      75 +    rule = ValidImpressionPriceRule()                          
+      76 +    assert rule.check(_event_record("bid_request", None)) is No
+         +ne                                                             
+      77 +    assert rule.check(_event_record("bid_request", "garbage")) 
+         +is None                                                        
+      78 +    assert rule.check(_event_record("click", -1)) is None      
+
+● Ahora añado un caso de precio inválido en el test end-to-end del pipeline y
+  ejecuto toda la suite.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 2 lines
+      26          "publisher_id,publisher_name,tier\npub_001,El Diario Di
+          gital,premium\n"
+      27      )
+      28      bad_ts_line = _event("br_3", "bid_request", "2026/09/01 10:
+          00")
+      29 +    bad_price_line = _event("im_3", "impression", 1788257700000
+         +, price=0)                                                     
+      30      redelivered_line = _event("br_1", "bid_request", "2026-09-0
+          1T10:15:00Z")
+      31      lines = [
+      32          redelivered_line,
+      33          _event("br_2", "bid_request", "2026-09-01 12:30:00"),  
+          # Madrid -> 10h UTC
+      34          _event("im_1", "impression", 1788257700000, price=25000
+          0),
+      35          _event("im_2", "impression", "1788257700000", price=750
+          000),
+      36 +        bad_price_line,  # impression with a non-positive price
+         + is rejected outright                                          
+      37          _event("ck_1", "click", "2026-09-01T12:45:00+02:00"),
+      38          bad_ts_line,
+      39          '{"event_id": "br_4", event_type: "bid_request"}',
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 8 lines, removed 6 lines
+      64          for line in (output_dir / "rejected.jsonl").read_text()
+          .splitlines()
+      65      ]
+      66      assert [(r["line_number"], r["reason"].split(":")[0]) for r
+           in rejected] == [
+      67 -        (6, "invalid_ts"),                                     
+      68 -        (7, "invalid_json"),                                   
+      69 -        (8, "duplicate_line"),                                 
+      67 +        (5, "invalid_price"),                                  
+      68 +        (7, "invalid_ts"),                                     
+      69 +        (8, "invalid_json"),                                   
+      70 +        (9, "duplicate_line"),                                 
+      71      ]
+      71 -    assert rejected[0]["raw_line"] == bad_ts_line              
+      72 -    assert rejected[0]["source_file"].endswith("events.jsonl") 
+      73 -    assert rejected[2]["raw_line"] == redelivered_line         
+      72 +    assert rejected[0]["raw_line"] == bad_price_line           
+      73 +    assert rejected[1]["raw_line"] == bad_ts_line              
+      74 +    assert rejected[1]["source_file"].endswith("events.jsonl") 
+      75 +    assert rejected[3]["raw_line"] == redelivered_line         
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Funciona correctamente y captura 22 impresiones con price_micros inválido
+  (null, "N/A", "null" como string, etc.) sobre los datos reales. Verifico la
+  idempotencia con dos ejecuciones separadas:
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Confirmado: el fichero data/events-test.jsonl está cambiando entre tus
+  ediciones en el IDE mientras yo ejecuto el pipeline — no es un fallo del
+  código, simplemente el input ya no es el mismo en cada ejecución (el valor de
+  ts y price_micros de esa línea difieren entre una llamada y la siguiente).
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Sobre una copia congelada del input (eliminando la variable de que
+  events-test.jsonl se estaba editando a la vez), la salida es byte-idéntica
+  entre dos ejecuciones. Todo correcto.
+
+  Resumen de lo añadido:
+
+  - priceutils.py — parse_price_micros(): acepta int, float o string (incluida
+    notación científica como "1.2e3"); rechaza bool, None, no-numéricos y
+    valores no finitos (nan/inf).
+  - cleaning/rules/price.py — ValidImpressionPriceRule: si event_type !=
+    "impression" no hace nada (None, se mantiene el registro); si es impression,
+    exige que price_micros sea parseable y estrictamente mayor que cero, o
+    rechaza con motivo invalid_price: ....
+  - Añadida a default_rules() en cleaning/rules/__init__.py, tras las reglas de
+    duplicados y timestamp.
+  - Tests: tests/test_priceutils.py (parseo), nuevos casos en
+    tests/test_cleaning.py (regla ignorada en no-impression, precio
+    inválido/cero/negativo/ausente rechazado), y un caso end-to-end en
+    test_pipeline.py con una impresión de precio 0 que se descarta sin afectar a
+    las métricas agregadas.
+
+  45/45 tests pasan. Sobre los datos reales de data/, la regla detecta 22
+  impresiones con precio inválido (null, "N/A", etc.) que antes se contaban
+  igualmente como impresión con gasto 0 — ahora se descartan por completo, como
+  pide el enunciado.
+
+❯ <ide_opened_file>The user opened the file
+  /mnt/c/PABLO/TAPTAP/taptapnetworks-taptap-codetest-data-6f9357aafa3d/src/tapt
+  ap_codetest/cleaning/rules/timestamp.py in the IDE. This may or may not be
+  related to the current task.</ide_opened_file>
+❯ quiero añadir un extra en la regla de timestamp. ademas del formato, quiero
+  revisar que la fecha se encuentra dentro del rango [2026-08-25T00:00:00Z,
+  2026-09-10T00:00:00Z) si se encuentra fuera de este rango el evento debe ser
+  rechazado
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/timeutils.py)
+  ⎿  Added 4 lines
+       9  
+      10  NAIVE_TZ = ZoneInfo("Europe/Madrid")
+      11  
+      12 +# Events outside this window are not real. Start is inclusive, 
+         +end is exclusive.                                              
+      13 +PLAUSIBLE_WINDOW_START = datetime(2026, 8, 25, tzinfo=UTC)     
+      14 +PLAUSIBLE_WINDOW_END = datetime(2026, 9, 10, tzinfo=UTC)       
+      15 +                                                               
+      16  _ISO_AWARE_RE = re.compile(
+      17      r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\
+          d{2})"
+      18  )
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/timeutils.py)
+  ⎿  Added 5 lines
+      52      raise TimestampParseError(f"unrecognized ts format: {value!
+          r}")
+      53  
+      54  
+      55 +def is_plausible(ts: datetime) -> bool:                        
+      56 +    """Whether `ts` falls in `[PLAUSIBLE_WINDOW_START, PLAUSIBL
+         +E_WINDOW_END)`."""                                             
+      57 +    return PLAUSIBLE_WINDOW_START <= ts < PLAUSIBLE_WINDOW_END 
+      58 +                                                               
+      59 +                                                               
+      60  def _from_epoch_ms(value: int | float) -> datetime:
+      61      try:
+      62          return datetime.fromtimestamp(value / 1000, tz=UTC)
+
+● Ahora extiendo la regla de limpieza para usar esta validación tras el parseo:
+
+● Update(src/taptap_codetest/cleaning/rules/timestamp.py)
+  ⎿  Added 17 lines, removed 3 lines
+       2  
+       3  from taptap_codetest.cleaning.base import CleaningRule
+       4  from taptap_codetest.records import Record
+       5 -from taptap_codetest.timeutils import TimestampParseError, pars
+         -e_ts                                                           
+       5 +from taptap_codetest.timeutils import (                        
+       6 +    PLAUSIBLE_WINDOW_END,                                      
+       7 +    PLAUSIBLE_WINDOW_START,                                    
+       8 +    TimestampParseError,                                       
+       9 +    is_plausible,                                              
+      10 +    parse_ts,                                                  
+      11 +)                                                              
+      12  
+      13  
+      14  class ValidTimestampRule(CleaningRule):
+       9 -    """Drops events whose `ts` is missing or not in an accepted
+         - format."""                                                    
+      15 +    """Drops events whose `ts` is missing, not in an accepted f
+         +ormat, or                                                      
+      16 +    falls outside the plausible window `[PLAUSIBLE_WINDOW_START
+         +,                                                              
+      17 +    PLAUSIBLE_WINDOW_END)` — such a timestamp is not real.     
+      18 +    """                                                        
+      19  
+      20      def check(self, record: Record) -> str | None:
+      21          ts = record.payload.get("ts")
+      22          if ts is None:
+      23              return "missing_ts"
+      24          try:
+      16 -            parse_ts(ts)                                       
+      25 +            parsed = parse_ts(ts)                              
+      26          except TimestampParseError as exc:
+      27              return f"invalid_ts: {exc}"
+      28 +        if not is_plausible(parsed):                           
+      29 +            return (                                           
+      30 +                f"implausible_ts: {parsed.isoformat()} outside 
+         +"                                                              
+      31 +                f"[{PLAUSIBLE_WINDOW_START.isoformat()}, {PLAUS
+         +IBLE_WINDOW_END.isoformat()})"                                 
+      32 +            )                                                  
+      33          return None
+
+● Ahora añado tests dedicados para esta ventana de plausibilidad, tanto a nivel
+  de timeutils como de la regla de limpieza.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_timeutils.py)
+  ⎿  Added 7 lines, removed 1 line
+       2  
+       3  import pytest
+       4  
+       5 -from taptap_codetest.timeutils import TimestampParseError, pars
+         -e_ts                                                           
+       5 +from taptap_codetest.timeutils import (                        
+       6 +    PLAUSIBLE_WINDOW_END,                                      
+       7 +    PLAUSIBLE_WINDOW_START,                                    
+       8 +    TimestampParseError,                                       
+       9 +    is_plausible,                                              
+      10 +    parse_ts,                                                  
+      11 +)                                                              
+      12  
+      13  EXPECTED = datetime(2026, 9, 1, 10, 0, 0, tzinfo=UTC)
+      14  
+
+● Update(tests/test_timeutils.py)
+  ⎿  Added 23 lines
+      49  def test_rejected_formats(value):
+      50      with pytest.raises(TimestampParseError):
+      51          parse_ts(value)
+      52 +                                                               
+      53 +                                                               
+      54 +@pytest.mark.parametrize(                                      
+      55 +    "value",                                                   
+      56 +    [                                                          
+      57 +        PLAUSIBLE_WINDOW_START,                                
+      58 +        PLAUSIBLE_WINDOW_START.replace(day=26),                
+      59 +        PLAUSIBLE_WINDOW_END.replace(microsecond=0) - __import_
+         +_("datetime").timedelta(                                       
+      60 +            seconds=1                                          
+      61 +        ),                                                     
+      62 +    ],                                                         
+      63 +)                                                              
+      64 +def test_is_plausible_accepts_window_bounds(value):            
+      65 +    assert is_plausible(value) is True                         
+      66 +                                                               
+      67 +                                                               
+      68 +def test_is_plausible_rejects_before_start():                  
+      69 +    assert is_plausible(PLAUSIBLE_WINDOW_START - __import__("da
+         +tetime").timedelta(seconds=1)) is False                        
+      70 +                                                               
+      71 +                                                               
+      72 +def test_is_plausible_rejects_end_itself_and_after():          
+      73 +    assert is_plausible(PLAUSIBLE_WINDOW_END) is False         
+      74 +    assert is_plausible(PLAUSIBLE_WINDOW_END + __import__("date
+         +time").timedelta(days=1)) is False                             
+
+● Update(tests/test_timeutils.py)
+  ⎿  Added 1 line, removed 1 line
+      1 -from datetime import UTC, datetime                              
+      1 +from datetime import UTC, datetime, timedelta                   
+      2  
+      3  import pytest
+      4  
+
+● Update(tests/test_timeutils.py)
+  ⎿  Added 3 lines, removed 5 lines
+      56      [
+      57          PLAUSIBLE_WINDOW_START,
+      58          PLAUSIBLE_WINDOW_START.replace(day=26),
+      59 -        PLAUSIBLE_WINDOW_END.replace(microsecond=0) - __import_
+         -_("datetime").timedelta(                                       
+      60 -            seconds=1                                          
+      61 -        ),                                                     
+      59 +        PLAUSIBLE_WINDOW_END - timedelta(seconds=1),           
+      60      ],
+      61  )
+      62  def test_is_plausible_accepts_window_bounds(value):
+     ...
+      64  
+      65  
+      66  def test_is_plausible_rejects_before_start():
+      69 -    assert is_plausible(PLAUSIBLE_WINDOW_START - __import__("da
+         -tetime").timedelta(seconds=1)) is False                        
+      67 +    assert is_plausible(PLAUSIBLE_WINDOW_START - timedelta(seco
+         +nds=1)) is False                                               
+      68  
+      69  
+      70  def test_is_plausible_rejects_end_itself_and_after():
+      71      assert is_plausible(PLAUSIBLE_WINDOW_END) is False
+      74 -    assert is_plausible(PLAUSIBLE_WINDOW_END + __import__("date
+         -time").timedelta(days=1)) is False                             
+      72 +    assert is_plausible(PLAUSIBLE_WINDOW_END + timedelta(days=1
+         +)) is False                                                    
+
+● Ahora añado un test de la regla ValidTimestampRule (unitario) verificando el
+  rechazo por fuera de ventana, además de formato inválido.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_cleaning.py)
+  ⎿  Added 1 line
+      1  from taptap_codetest.cleaning.rules.duplicate import DuplicateLi
+         neRule
+      2  from taptap_codetest.cleaning.rules.price import ValidImpression
+         PriceRule
+      3 +from taptap_codetest.cleaning.rules.timestamp import ValidTimest
+        +ampRule                                                         
+      4  from taptap_codetest.records import Record
+      5  
+      6  
+
+● Update(tests/test_cleaning.py)
+  ⎿  Added 28 lines
+       77      assert rule.check(_event_record("bid_request", None)) is N
+           one
+       78      assert rule.check(_event_record("bid_request", "garbage"))
+            is None
+       79      assert rule.check(_event_record("click", -1)) is None
+       80 +                                                              
+       81 +                                                              
+       82 +def _ts_record(ts):                                           
+       83 +    return Record(payload={"ts": ts})                         
+       84 +                                                              
+       85 +                                                              
+       86 +def test_timestamp_inside_plausible_window_is_kept():         
+       87 +    rule = ValidTimestampRule()                               
+       88 +    assert rule.check(_ts_record("2026-08-25T00:00:00Z")) is N
+          +one                                                           
+       89 +    assert rule.check(_ts_record("2026-09-01T12:00:00Z")) is N
+          +one                                                           
+       90 +    assert rule.check(_ts_record("2026-09-09T23:59:59Z")) is N
+          +one                                                           
+       91 +                                                              
+       92 +                                                              
+       93 +def test_timestamp_before_window_start_is_rejected():         
+       94 +    rule = ValidTimestampRule()                               
+       95 +    reason = rule.check(_ts_record("2026-08-24T23:59:59Z"))   
+       96 +    assert reason.startswith("implausible_ts:")               
+       97 +                                                              
+       98 +                                                              
+       99 +def test_timestamp_at_or_after_window_end_is_rejected():      
+      100 +    rule = ValidTimestampRule()                               
+      101 +    assert rule.check(_ts_record("2026-09-10T00:00:00Z")).star
+          +tswith("implausible_ts:")                                     
+      102 +    assert rule.check(_ts_record("2026-09-15T00:00:00Z")).star
+          +tswith("implausible_ts:")                                     
+      103 +                                                              
+      104 +                                                              
+      105 +def test_timestamp_still_rejected_for_bad_format():           
+      106 +    rule = ValidTimestampRule()                               
+      107 +    assert rule.check(_ts_record("not-a-timestamp")).startswit
+          +h("invalid_ts:")                                              
+
+● Ahora ejecuto toda la suite y verifico sobre datos reales.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Funciona correctamente y de forma idéntica entre dos ejecuciones. De paso,
+  esta regla también resuelve el problema que había visto antes en metrics.csv
+  con fechas 1969-12-31/1970-01-01: esas filas venían de eventos con ts: 0 o
+  "1970-01-01T00:00:00Z", que ahora se rechazan como implausible_ts en lugar de
+  colarse en las métricas.
+
+  Resumen de lo añadido:
+
+  - timeutils.py — constantes PLAUSIBLE_WINDOW_START/PLAUSIBLE_WINDOW_END
+    ([2026-08-25T00:00:00Z, 2026-09-10T00:00:00Z), inicio inclusive, fin
+    exclusivo) y la función is_plausible(ts).
+  - cleaning/rules/timestamp.py — ValidTimestampRule ahora, tras parsear el ts,
+    comprueba también que caiga dentro de esa ventana; si no, rechaza con motivo
+    implausible_ts: ....
+  - Tests: casos nuevos en test_timeutils.py para is_plausible (límites
+    inclusive/exclusive) y en test_cleaning.py para la regla (dentro de ventana,
+    antes del inicio, en/tras el fin, y que el formato inválido sigue
+    rechazándose igual).
+
+  54/54 tests pasan. Sobre los datos reales congelados, detecta 8 eventos con ts
+  en epoch 0 (1970-01-01) que antes se colaban en las métricas, y la salida
+  sigue siendo byte-idéntica entre ejecuciones.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl in the IDE. This may
+  or may not be related to the current task.</ide_opened_file>
+
+❯ antes de seguir con las reglas para las transformations quiero revisar los
+  paths de salida. quiero que las rejects vayan a la carpeta _rejects dentro de
+  out. tambien quiero que las metrics se dividan en diferentes carpetas dentro
+  de out, en funcion de la fecha del evento. es decir la salida de los eventos
+  del 2026-09-01 irán a out/date=2026-09-01/metrics.csv y asi con cada día. en
+  caso de que en el fichero del dia 2 haya eventos del día 1 esta salida irá
+  al directorio del día 1,, prevaleciendo la fecha del evento
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Voy a rediseñar la capa de escritura para soportar particionado, manteniendo
+  la lógica de "fichero por formato" desacoplada de "cómo se organiza en
+  carpetas".
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/writing/base.py)
+  ⎿  Added 39 lines, removed 2 lines
+       5  from abc import ABC, abstractmethod
+       6  from pathlib import Path
+       7  
+       8 +import pandas as pd                                            
+       9 +                                                               
+      10  from taptap_codetest.tabular.base import TableSet
+      11  
+      12  
+      13  class Writer(ABC):
+      12 -    """Writes each table in a `TableSet` to `output_path`."""  
+      14 +    """Writes each table in a `TableSet` to `output_path`.     
+      15  
+      16 +    When `partition_column` is given and a table has that colum
+         +n, its rows                                                    
+      17 +    are split by the column's distinct values into one subdirec
+         +tory per                                                       
+      18 +    value, named `<partition_label>=<value>` — events are parti
+         +tioned by                                                      
+      19 +    when they happened, not by which file or table they came fr
+         +om. A table                                                    
+      20 +    without that column, or no `partition_column` configured, i
+         +s written                                                      
+      21 +    flat at the top of `output_path`.                          
+      22 +                                                               
+      23 +    Subclasses only need to say how to write one table to one p
+         +ath; this                                                      
+      24 +    base class owns the (shared) partitioning and directory lay
+         +out.                                                           
+      25 +    """                                                        
+      26 +                                                               
+      27 +    def __init__(self, partition_column: str | None = None, par
+         +tition_label: str | None = None) -> None:                      
+      28 +        self.partition_column = partition_column               
+      29 +        self.partition_label = partition_label if partition_lab
+         +el is not None else partition_column                           
+      30 +                                                               
+      31 +    @property                                                  
+      32      @abstractmethod
+      15 -    def write(self, tables: TableSet, output_path: Path) -> Non
+         -e: ...                                                         
+      33 +    def extension(self) -> str:                                
+      34 +        """File extension (with leading dot) this writer produc
+         +es."""                                                         
+      35 +                                                               
+      36 +    @abstractmethod                                            
+      37 +    def _write_one(self, table: pd.DataFrame, path: Path) -> No
+         +ne:                                                            
+      38 +        """Write a single table to `path`."""                  
+      39 +                                                               
+      40 +    def write(self, tables: TableSet, output_path: Path) -> Non
+         +e:                                                             
+      41 +        for name, table in tables.items():                     
+      42 +            if self.partition_column is not None and self.parti
+         +tion_column in table.columns:                                  
+      43 +                self._write_partitioned(name, table, output_pat
+         +h)                                                             
+      44 +            else:                                              
+      45 +                output_path.mkdir(parents=True, exist_ok=True) 
+      46 +                self._write_one(table, output_path / f"{name}{s
+         +elf.extension}")                                               
+      47 +                                                               
+      48 +    def _write_partitioned(self, name: str, table: pd.DataFrame
+         +, output_path: Path) -> None:                                  
+      49 +        for value, group in table.groupby(self.partition_column
+         +, sort=True):                                                  
+      50 +            partition_dir = output_path / f"{self.partition_lab
+         +el}={value}"                                                   
+      51 +            partition_dir.mkdir(parents=True, exist_ok=True)   
+      52 +            self._write_one(group, partition_dir / f"{name}{sel
+         +f.extension}")                                                 
+
+● Write(src/taptap_codetest/writing/csv_writer.py)
+  ⎿  Added 6 lines, removed 5 lines
+       2  
+       3  from pathlib import Path
+       4  
+       5 -from taptap_codetest.tabular.base import TableSet              
+       5 +import pandas as pd                                            
+       6 +                                                               
+       7  from taptap_codetest.writing.base import Writer
+       8  
+       9  
+      10  class CSVWriter(Writer):
+      10 -    def write(self, tables: TableSet, output_path: Path) -> Non
+         -e:                                                             
+      11 -        output_path.mkdir(parents=True, exist_ok=True)         
+      12 -        for name, table in tables.items():                     
+      13 -            table.to_csv(output_path / f"{name}.csv", index=Fal
+         -se)                                                            
+      11 +    extension = ".csv"                                         
+      12 +                                                               
+      13 +    def _write_one(self, table: pd.DataFrame, path: Path) -> No
+         +ne:                                                            
+      14 +        table.to_csv(path, index=False)                        
+
+● Write(src/taptap_codetest/writing/parquet_writer.py)
+  ⎿  Added 6 lines, removed 5 lines
+       2  
+       3  from pathlib import Path
+       4  
+       5 -from taptap_codetest.tabular.base import TableSet              
+       5 +import pandas as pd                                            
+       6 +                                                               
+       7  from taptap_codetest.writing.base import Writer
+       8  
+       9  
+      10  class ParquetWriter(Writer):
+      10 -    def write(self, tables: TableSet, output_path: Path) -> Non
+         -e:                                                             
+      11 -        output_path.mkdir(parents=True, exist_ok=True)         
+      12 -        for name, table in tables.items():                     
+      13 -            table.to_parquet(output_path / f"{name}.parquet", i
+         -ndex=False)                                                    
+      11 +    extension = ".parquet"                                     
+      12 +                                                               
+      13 +    def _write_one(self, table: pd.DataFrame, path: Path) -> No
+         +ne:                                                            
+      14 +        table.to_parquet(path, index=False)                    
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/writing/rejection_writer.py)
+  ⎿  Added 8 lines, removed 4 lines
+       9  
+      10  
+      11  class RejectionWriter:
+      12 -    """Writes one JSON object per discarded original line."""  
+      12 +    """Writes one JSON object per discarded original line, unde
+         +r its own                                                      
+      13 +    `dirname` subdirectory so it never collides with a date par
+         +tition.                                                        
+      14 +    """                                                        
+      15  
+      14 -    def __init__(self, filename: str = "rejected.jsonl") -> Non
+         -e:                                                             
+      16 +    def __init__(self, dirname: str = "_rejects", filename: str
+         + = "rejects.jsonl") -> None:                                   
+      17 +        self.dirname = dirname                                 
+      18          self.filename = filename
+      19  
+      20      def write(self, rejections: Iterable[Rejection], output_pat
+          h: Path) -> None:
+      18 -        output_path.mkdir(parents=True, exist_ok=True)         
+      19 -        with (output_path / self.filename).open("w", encoding="
+         -utf-8") as handle:                                             
+      21 +        directory = output_path / self.dirname                 
+      22 +        directory.mkdir(parents=True, exist_ok=True)           
+      23 +        with (directory / self.filename).open("w", encoding="ut
+         +f-8") as handle:                                               
+      24              for rejection in rejections:
+      25                  handle.write(json.dumps(asdict(rejection), ensu
+          re_ascii=False) + "\n")
+
+● Ahora actualizo cli.py para configurar el particionado por fecha en el writer
+  de métricas:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+      47          cleaner=Cleaner(rules=default_cleaning_rules()),
+      48          transformer=Transformer(rules=DEFAULT_TRANSFORMATION_RU
+          LES),
+      49          tabulator=MetricsTabulator(publishers=load_publishers(i
+          nput_path)),
+      50 -        writer=WRITERS[output_format](),                       
+      50 +        writer=WRITERS[output_format](partition_column="date_ut
+         +c", partition_label="date"),                                   
+      51          rejection_writer=RejectionWriter(),
+      52      )
+      53  
+
+● Ahora actualizo el test end-to-end existente para reflejar las nuevas rutas, y
+  añado tests dedicados a la capa de escritura.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 20 lines, removed 3 lines
+      38          bad_ts_line,
+      39          '{"event_id": "br_4", event_type: "bid_request"}',
+      40          redelivered_line,  # at-least-once redelivery of the fi
+          rst line, byte-identical
+      41 +        _event("br_5", "bid_request", "2026-09-02T09:00:00Z"), 
+         + # its own date partition                                      
+      42      ]
+      43      (input_dir / "events.jsonl").write_text("\n".join(lines) + 
+          "\n")
+      44  
+      45      build_pipeline(input_dir).run(input_dir, output_dir)
+      46  
+      46 -    metrics = pd.read_csv(output_dir / "metrics.csv")          
+      47 -    assert metrics.to_dict("records") == [                     
+      47 +    metrics_day1 = pd.read_csv(output_dir / "date=2026-09-01" /
+         + "metrics.csv")                                                
+      48 +    assert metrics_day1.to_dict("records") == [                
+      49          {
+      50              "date_utc": "2026-09-01",
+      51              "hour_utc": 10,
+     ...
+      60          }
+      61      ]
+      62  
+      63 +    metrics_day2 = pd.read_csv(output_dir / "date=2026-09-02" /
+         + "metrics.csv")                                                
+      64 +    assert metrics_day2.to_dict("records") == [                
+      65 +        {                                                      
+      66 +            "date_utc": "2026-09-02",                          
+      67 +            "hour_utc": 9,                                     
+      68 +            "country": "ES",                                   
+      69 +            "publisher_id": "pub_001",                         
+      70 +            "publisher_name": "El Diario Digital",             
+      71 +            "bid_requests": 1,                                 
+      72 +            "impressions": 0,                                  
+      73 +            "clicks": 0,                                       
+      74 +            "ctr": 0.0,                                        
+      75 +            "spend_eur": 0.0,                                  
+      76 +        }                                                      
+      77 +    ]                                                          
+      78 +                                                               
+      79      rejected = [
+      80          json.loads(line)
+      64 -        for line in (output_dir / "rejected.jsonl").read_text()
+         -.splitlines()                                                  
+      81 +        for line in (output_dir / "_rejects" / "rejects.jsonl")
+         +.read_text().splitlines()                                      
+      82      ]
+      83      assert [(r["line_number"], r["reason"].split(":")[0]) for r
+           in rejected] == [
+      84          (5, "invalid_price"),
+
+● Write(tests/test_writing.py)
+  ⎿  Wrote 52 lines to tests/test_writing.py
+       1 import json
+       2
+       3 import pandas as pd
+       4
+       5 from taptap_codetest.records import Rejection
+       6 from taptap_codetest.writing.csv_writer import CSVWriter
+       7 from taptap_codetest.writing.rejection_writer import RejectionWr
+         iter
+       8
+       9
+     … +43 lines (ctrl+o to expand)
+
+● Ahora añado el test explícito del escenario que describiste: un evento del día
+  1 que llega dentro de un fichero "del día 2".
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 19 lines
+       90      assert rejected[1]["raw_line"] == bad_ts_line
+       91      assert rejected[1]["source_file"].endswith("events.jsonl")
+       92      assert rejected[3]["raw_line"] == redelivered_line
+       93 +                                                              
+       94 +                                                              
+       95 +def test_late_event_partitions_by_its_own_date_not_the_file_it
+          +_arrived_in(tmp_path):                                        
+       96 +    input_dir = tmp_path / "in"                               
+       97 +    output_dir = tmp_path / "out"                             
+       98 +    input_dir.mkdir()                                         
+       99 +    (input_dir / "publishers.csv").write_text(                
+      100 +        "publisher_id,publisher_name,tier\npub_001,El Diario D
+          +igital,premium\n"                                             
+      101 +    )                                                         
+      102 +    # Delivered inside "day 2"'s file, but it happened on day 
+          +1.                                                            
+      103 +    late_line = _event("br_late", "bid_request", "2026-09-01T2
+          +3:00:00Z")                                                    
+      104 +    (input_dir / "events_2026-09-02.jsonl").write_text(late_li
+          +ne + "\n")                                                    
+      105 +                                                              
+      106 +    build_pipeline(input_dir).run(input_dir, output_dir)      
+      107 +                                                              
+      108 +    assert not (output_dir / "date=2026-09-02").exists()      
+      109 +    metrics = pd.read_csv(output_dir / "date=2026-09-01" / "me
+          +trics.csv")                                                   
+      110 +    assert metrics.loc[0, "date_utc"] == "2026-09-01"         
+      111 +    assert metrics.loc[0, "hour_utc"] == 23                   
+
+● Ahora ejecuto toda la suite de tests.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 59/59 tests pasan. Ahora lo pruebo sobre los datos reales (incluyendo el
+  fichero late-delivery) para confirmar el particionado real y la idempotencia.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Resumen de los cambios en la capa de escritura:
+
+  - writing/base.py — Writer ahora implementa el particionado de forma genérica:
+    si se le da partition_column y la tabla tiene esa columna, escribe un
+    fichero por valor distinto en <partition_label>=<valor>/<tabla><ext>; si no,
+    escribe plano como antes. Las subclases (CSVWriter, ParquetWriter) solo
+    dicen su extensión y cómo volcar una tabla — el layout de carpetas queda
+    desacoplado del formato.
+  - cli.py — build_pipeline configura el writer con partition_column="date_utc",
+    partition_label="date", de donde sale out/date=YYYY-MM-DD/metrics.csv.
+  - writing/rejection_writer.py — ahora escribe en out/_rejects/rejects.jsonl
+    (antes out/rejected.jsonl, nombre que alineo con el del enunciado).
+  - La fecha de partición (date_utc) ya se deriva del ts del propio evento en la
+    capa de transformación (transformation/rules/timestamp.py), no del nombre
+    de fichero — así que un evento del día 1 que llega dentro de
+    events_2026-09-02.jsonl ya caía, y sigue cayendo, en date=2026-09-01/. Añadí
+    un test explícito
+    (test_late_event_partitions_by_its_own_date_not_the_file_it_arrived_in) que
+    lo comprueba.
+
+  Actualicé el test end-to-end existente a las nuevas rutas y añadí
+  tests/test_writing.py para la lógica de particionado. 59/59 tests pasan.
+  Verificado sobre datos reales (incluyendo late-delivery/): estructura
+  _rejects/, date=2026-09-01|02|03/metrics.csv, y dos ejecuciones completas
+  producen árbol y contenido byte-idénticos.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/late-delivery/events_2026-09-03_late.jsonl
+  in the IDE. This may or may not be related to the current
+  task.</ide_opened_file>
+
+❯ ctr representa el clicks dividido entre impresiones, valiendo 0 cuando no hay
+  impresiones. sobre qué datos se calcula esta metrica? además de explicarmelo
+  quiero que este formateado con exactamente 6 decimales
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/tabular/metrics_tabulator.py)
+  ⎿  Added 5 lines, removed 2 lines
+      50              .sum()
+      51              .reset_index()
+      52          )
+      53 -        metrics["ctr"] = (metrics["clicks"] / metrics["impressi
+         -ons"]).where(                                                  
+      53 +        ctr = (metrics["clicks"] / metrics["impressions"]).wher
+         +e(                                                             
+      54              metrics["impressions"] > 0, 0.0
+      55          )
+      56 -        metrics["spend_eur"] = metrics["spend_micros"] / MICROS
+         -_PER_EUR                                                       
+      56 +        spend_eur = metrics["spend_micros"] / MICROS_PER_EUR   
+      57 +        # Exactly 6 decimal places in the output file, per spec
+         +.                                                              
+      58 +        metrics["ctr"] = ctr.map(lambda v: f"{v:.6f}")         
+      59 +        metrics["spend_eur"] = spend_eur.map(lambda v: f"{v:.6f
+         +}")                                                            
+      60          metrics = metrics.merge(self.publishers, on="publisher_
+          id", how="left")
+      61  
+      62          return {self.table_name: metrics[METRIC_COLUMNS]}
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 59/59 pasan. Verifico el contenido real del CSV para confirmar los 6 decimales
+  literales:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Sobre qué datos se calcula ctr:
+
+  Se calcula por grupo, no globalmente. Cada fila de metrics.csv es una
+  combinación única de date_utc × hour_utc × country × publisher_id
+  (metrics_tabulator.py:12). Dentro de ese grupo:
+
+  - clicks = número de eventos con event_type == "click" que sobrevivieron a la
+    limpieza (ts válido y dentro de la ventana de plausibilidad, no duplicados).
+  - impressions = número de eventos con event_type == "impression" que
+    sobrevivieron a la limpieza, incluyendo la regla de price_micros que
+    acabamos de añadir (parseable y > 0).
+  - ctr = clicks / impressions en ese grupo concreto, y 0.0 si impressions == 0.
+
+  Una matización que vale la pena que conozcas: un click se cuenta aunque su
+  impression_id apunte a una impresión que fue rechazada (p. ej. por precio
+  inválido) o a una impresión de otro grupo. No hay validación cruzada
+  click↔impression, así que ctr podría teóricamente superar 1.0 en un grupo con
+  muchos clicks "huérfanos". No lo he tocado porque no me lo has pedido, pero
+  aviso por si quieres una regla de limpieza para eso más adelante.
+
+  Formato a 6 decimales: hecho en metrics_tabulator.py:53-57 — tanto ctr como
+  spend_eur (el enunciado exige el mismo formato para ambas, así que incluí las
+  dos) se formatean como texto con f"{v:.6f}" antes de escribir la tabla, en
+  lugar de dejar que el escritor serialice el float con su repr por defecto.
+
+  Verificado en el CSV real: 0.000000, 0.170700, 0.523900, etc. — siempre 6
+  decimales. 59/59 tests pasan y la salida sigue siendo idéntica entre dos
+  ejecuciones.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/transformation/base.py
+  in the IDE. This may or may not be related to the current
+  task.</ide_opened_file>
+
+❯ quiero ahora proceder con las transformaciones. la primera regla que quiero
+  aplicar tiene que ver con los mercados, que están en el campo country de los
+  eventos. los campos solo pueden ser los siguientes valores: ES, FR, IT, PT,
+  DE, GB. he detectado que en algun caso el formato viene en minusculas. en ese
+  caso se convertira a mayusculas. tambien he detectado que se reciben las
+  siguientes variaciones: ESP, FRA, ITA, PRT, DEU GBR. en estos casos
+  nuevamente se debe adaptar a los casos mencionados, y si ademas viniera
+  tambien en minusculas repito que deberia convertirse a mayusculas. quiero un
+  nuevo script en transformation/rules para seguir cumpliendo el esquema de las
+  cleaning/rules
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+● Write(src/taptap_codetest/transformation/rules/country.py)
+  ⎿  Wrote 41 lines to src/taptap_codetest/transformation/rules/country.py
+      1 from __future__ import annotations
+      2
+      3 from typing import Any
+      4
+      5 from taptap_codetest.records import Record
+      6 from taptap_codetest.transformation.base import TransformationRul
+        e
+      7
+      8 VALID_MARKETS = {"ES", "FR", "IT", "PT", "DE", "GB"}
+      9 UNKNOWN_MARKET = "XX"
+     … +32 lines (ctrl+o to expand)
+
+● Update(src/taptap_codetest/transformation/rules/__init__.py)
+  ⎿  Added 2 lines
+       1  """Concrete `TransformationRule` implementations, applied in `D
+          EFAULT_RULES` order."""
+       2  
+       3  from taptap_codetest.transformation.base import TransformationR
+          ule
+       4 +from taptap_codetest.transformation.rules.country import Normal
+         +izeCountryRule                                                 
+       5  from taptap_codetest.transformation.rules.timestamp import Deri
+          veUtcDateHourRule
+       6  
+       7  DEFAULT_RULES: list[TransformationRule] = [
+       8      DeriveUtcDateHourRule(),
+       9 +    NormalizeCountryRule(),                                    
+      10  ]
+
+● Ahora añado tests dedicados, siguiendo el mismo esquema que
+  tests/test_cleaning.py.
+
+● Write(tests/test_transformation.py)
+  ⎿  Wrote 88 lines to tests/test_transformation.py
+      1 import pytest
+      2
+      3 from taptap_codetest.records import Record
+      4 from taptap_codetest.transformation.rules.country import Normaliz
+        eCountryRule
+      5
+      6
+      7 def _country_record(country):
+      8     return Record(payload={"country": country})
+      9
+     … +79 lines (ctrl+o to expand)
+● Ahora ejecuto la suite completa y compruebo el resultado sobre los datos
+  reales.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 90/90 pasan. Compruebo sobre los datos reales que ya no quedan variantes sin
+  normalizar y que la idempotencia se mantiene.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Solo quedan los 7 valores esperados (ES, FR, IT, PT, DE, GB, XX), y la salida
+  sigue siendo byte-idéntica entre ejecuciones.
+
+  Resumen de lo añadido:
+
+  - transformation/rules/country.py — NormalizeCountryRule: recorta espacios,
+    pasa a mayúsculas, mapea las variantes alpha-3 (ESP→ES, FRA→FR, ITA→IT,
+    PRT→PT, DEU→DE, GBR→GB, incluido en minúsculas) y, si tras todo eso no es
+    uno de los seis códigos válidos (o el campo falta/no es string), lo etiqueta
+    como XX sin descartar el evento.
+  - Registrada en DEFAULT_RULES de transformation/rules/__init__.py.
+  - Añadí el fallback a XX y el trim de espacios aunque no los mencionaste
+    explícitamente: revisé los datos reales y hay valores como ' DE ', '', '??',
+    'ZZ', None, 'unknown' — sin esto se habrían quedado tal cual, incumpliendo
+    "los campos solo pueden ser los siguientes valores". Dime si prefieres que
+    esa parte vaya en una regla separada.
+
+  Tests en tests/test_transformation.py, siguiendo el mismo esquema que
+  test_cleaning.py: códigos ya válidos, minúsculas, alpha-3, alpha-3 en
+  minúsculas, espacios, valores irreconocibles/ausentes → XX, y que el resto del
+  payload no se toca. 90/90 tests pasan.
+
+❯ esta funcionando bien. ahora quiero una nueva regla en transformations para
+  que se revise el publisher_id contra el fichero
+  @taptapnetworks-taptap-codetest-data-6f9357aafa3d/data/publishers.csv .
+  quiero que si un evento hace referencia a un publisher_id que no se encuentra
+  en este csv la salida muestre UNKNOWN  en el publisher name de la salida
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/transformation/rules/publisher.py)
+  ⎿  Wrote 25 lines to
+     src/taptap_codetest/transformation/rules/publisher.py
+      1 from __future__ import annotations
+      2
+      3 import pandas as pd
+      4
+      5 from taptap_codetest.records import Record
+      6 from taptap_codetest.transformation.base import TransformationRul
+        e
+      7
+      8 UNKNOWN_PUBLISHER = "UNKNOWN"
+      9
+     … +16 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/transformation/rules/__init__.py)
+  ⎿  Added 15 lines, removed 5 lines
+       1 -"""Concrete `TransformationRule` implementations, applied in `D
+         -EFAULT_RULES` order."""                                        
+       1 +"""Concrete `TransformationRule` implementations, applied in `d
+         +efault_rules()` order."""                                      
+       2  
+       3 +import pandas as pd                                            
+       4 +                                                               
+       5  from taptap_codetest.transformation.base import TransformationR
+          ule
+       6  from taptap_codetest.transformation.rules.country import Normal
+          izeCountryRule
+       7 +from taptap_codetest.transformation.rules.publisher import Enri
+         +chPublisherNameRule                                            
+       8  from taptap_codetest.transformation.rules.timestamp import Deri
+          veUtcDateHourRule
+       9  
+       7 -DEFAULT_RULES: list[TransformationRule] = [                    
+       8 -    DeriveUtcDateHourRule(),                                   
+       9 -    NormalizeCountryRule(),                                    
+      10 -]                                                              
+      10 +                                                               
+      11 +def default_rules(publishers: pd.DataFrame) -> list[Transformat
+         +ionRule]:                                                      
+      12 +    """`EnrichPublisherNameRule` needs the publisher dimension,
+         + which is                                                      
+      13 +    only known once `--input` is resolved, so this is a factory
+         + rather                                                        
+      14 +    than a module-level constant.                              
+      15 +    """                                                        
+      16 +    return [                                                   
+      17 +        DeriveUtcDateHourRule(),                               
+      18 +        NormalizeCountryRule(),                                
+      19 +        EnrichPublisherNameRule(publishers),                   
+      20 +    ]                                                          
+
+● Write(src/taptap_codetest/transformation/__init__.py)
+  ⎿  Added 2 lines, removed 2 lines
+      1  from taptap_codetest.transformation.base import Transformer, Tra
+         nsformationRule
+      2 -from taptap_codetest.transformation.rules import DEFAULT_RULES  
+      2 +from taptap_codetest.transformation.rules import default_rules  
+      3  
+      4 -__all__ = ["Transformer", "TransformationRule", "DEFAULT_RULES"]
+      4 +__all__ = ["Transformer", "TransformationRule", "default_rules"]
+
+● Ahora actualizo cli.py y simplifico MetricsTabulator para que ya no necesite
+  conocer publishers.csv (ese dato ya llega resuelto en el payload gracias a la
+  nueva regla).
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+      12  from taptap_codetest.pipeline import Pipeline
+      13  from taptap_codetest.reference import load_publishers
+      14  from taptap_codetest.tabular import MetricsTabulator
+      15 -from taptap_codetest.transformation import DEFAULT_RULES as DEF
+         -AULT_TRANSFORMATION_RULES                                      
+      15  from taptap_codetest.transformation import Transformer
+      16 +from taptap_codetest.transformation import default_rules as def
+         +ault_transformation_rules                                      
+      17  from taptap_codetest.writing import WRITERS, RejectionWriter
+      18  
+      19  
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 3 lines, removed 2 lines
+      42  
+      43  
+      44  def build_pipeline(input_path: Path, output_format: str = "csv"
+          ) -> Pipeline:
+      45 +    publishers = load_publishers(input_path)                   
+      46      return Pipeline(
+      47          extractor=JSONLExtractor(),
+      48          cleaner=Cleaner(rules=default_cleaning_rules()),
+      48 -        transformer=Transformer(rules=DEFAULT_TRANSFORMATION_RU
+         -LES),                                                          
+      49 -        tabulator=MetricsTabulator(publishers=load_publishers(i
+         -nput_path)),                                                   
+      49 +        transformer=Transformer(rules=default_transformation_ru
+         +les(publishers)),                                              
+      50 +        tabulator=MetricsTabulator(),                          
+      51          writer=WRITERS[output_format](partition_column="date_ut
+          c", partition_label="date"),
+      52          rejection_writer=RejectionWriter(),
+      53      )
+
+● Ahora simplifico MetricsTabulator:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/tabular/metrics_tabulator.py)
+  ⎿  Added 7 lines, removed 4 lines
+       9  from taptap_codetest.records import Record
+      10  from taptap_codetest.tabular.base import Tabulator, TableSet
+      11  
+      12 -GROUP_KEYS = ["date_utc", "hour_utc", "country", "publisher_id"
+         -]                                                              
+      12 +# `publisher_name` is a function of `publisher_id` resolved ups
+         +tream by                                                       
+      13 +# `EnrichPublisherNameRule`, but grouping by it too costs nothi
+         +ng (it's                                                       
+      14 +# constant within each `publisher_id`) and keeps it in the outp
+         +ut without                                                     
+      15 +# a separate lookup here — the tabular layer doesn't need to kn
+         +ow about                                                       
+      16 +# `publishers.csv` at all.                                     
+      17 +GROUP_KEYS = ["date_utc", "hour_utc", "country", "publisher_id"
+         +, "publisher_name"]                                            
+      18  METRIC_COLUMNS = [
+      19      *GROUP_KEYS,
+      15 -    "publisher_name",                                          
+      20      "bid_requests",
+      21      "impressions",
+      22      "clicks",
+     ...
+      27  
+      28  
+      29  class MetricsTabulator(Tabulator):
+      26 -    def __init__(self, publishers: pd.DataFrame, table_name: st
+         -r = "metrics") -> None:                                        
+      27 -        self.publishers = publishers                           
+      30 +    def __init__(self, table_name: str = "metrics") -> None:   
+      31          self.table_name = table_name
+      32  
+      33      def build(self, records: Iterable[Record]) -> TableSet:
+
+● Update(src/taptap_codetest/tabular/metrics_tabulator.py)
+  ⎿  Removed 1 line
+      60          # Exactly 6 decimal places in the output file, per spec
+          .
+      61          metrics["ctr"] = ctr.map(lambda v: f"{v:.6f}")
+      62          metrics["spend_eur"] = spend_eur.map(lambda v: f"{v:.6f
+          }")
+      63 -        metrics = metrics.merge(self.publishers, on="publisher_
+         -id", how="left")                                               
+      63  
+      64          return {self.table_name: metrics[METRIC_COLUMNS]}
+
+  Read 1 file (ctrl+o to expand)
+
+● Ahora busco otros usos de MetricsTabulator(publishers=...) y load_publishers
+  que puedan quedar desalineados (tests existentes):
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Todo consistente, sin referencias huérfanas. Ahora añado tests dedicados a
+  EnrichPublisherNameRule.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_transformation.py)
+  ⎿  Added 2 lines
+      1 +import pandas as pd                                             
+      2  import pytest
+      3  
+      4  from taptap_codetest.records import Record
+      5  from taptap_codetest.transformation.rules.country import Normali
+         zeCountryRule
+      6 +from taptap_codetest.transformation.rules.publisher import Enric
+        +hPublisherNameRule                                              
+      7  
+      8  
+      9  def _country_record(country):
+
+● Update(tests/test_transformation.py)
+  ⎿  Added 38 lines
+       88      result = rule.apply(record)
+       89      assert result.payload["event_id"] == "br_1"
+       90      assert result.payload["country"] == "ES"
+       91 +                                                              
+       92 +                                                              
+       93 +def _publishers():                                            
+       94 +    return pd.DataFrame(                                      
+       95 +        {                                                     
+       96 +            "publisher_id": ["pub_001", "pub_002"],           
+       97 +            "publisher_name": ["El Diario Digital", "RadioVoz"
+          +],                                                            
+       98 +        }                                                     
+       99 +    )                                                         
+      100 +                                                              
+      101 +                                                              
+      102 +def test_known_publisher_id_resolves_its_name():              
+      103 +    rule = EnrichPublisherNameRule(_publishers())             
+      104 +    record = Record(payload={"publisher_id": "pub_002"})      
+      105 +    result = rule.apply(record)                               
+      106 +    assert result.payload["publisher_name"] == "RadioVoz"     
+      107 +                                                              
+      108 +                                                              
+      109 +def test_unknown_publisher_id_becomes_unknown():              
+      110 +    rule = EnrichPublisherNameRule(_publishers())             
+      111 +    record = Record(payload={"publisher_id": "pub_999"})      
+      112 +    result = rule.apply(record)                               
+      113 +    assert result.payload["publisher_name"] == "UNKNOWN"      
+      114 +                                                              
+      115 +                                                              
+      116 +def test_missing_publisher_id_becomes_unknown():              
+      117 +    rule = EnrichPublisherNameRule(_publishers())             
+      118 +    record = Record(payload={})                               
+      119 +    result = rule.apply(record)                               
+      120 +    assert result.payload["publisher_name"] == "UNKNOWN"      
+      121 +                                                              
+      122 +                                                              
+      123 +def test_publisher_lookup_preserves_other_payload_fields():   
+      124 +    rule = EnrichPublisherNameRule(_publishers())             
+      125 +    record = Record(payload={"publisher_id": "pub_001", "event
+          +_id": "br_1"})                                                
+      126 +    result = rule.apply(record)                               
+      127 +    assert result.payload["event_id"] == "br_1"               
+      128 +    assert result.payload["publisher_name"] == "El Diario Digi
+          +tal"                                                          
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● 94/94 pasan. Compruebo sobre los datos reales que los publisher_id
+  desconocidos muestran UNKNOWN y que la idempotencia se mantiene.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Funciona correctamente: pub_032 (no está en publishers.csv) y los eventos sin
+  publisher_id caen en UNKNOWN, hay 21 nombres distintos en total (los 20 reales
+  + UNKNOWN), y la salida es idéntica entre dos ejecuciones.
+
+  Resumen de los cambios:
+
+  - transformation/rules/publisher.py — EnrichPublisherNameRule: recibe la tabla
+    de publishers y, por cada evento, añade publisher_name buscando su
+    publisher_id; si no hay coincidencia (o el campo falta), pone "UNKNOWN". El
+    evento nunca se descarta, solo se etiqueta.
+  - Como esta regla necesita la tabla de publishers en el momento de construirse
+    (a diferencia de las reglas de country/ts, que no dependen de nada
+    externo), convertí transformation.DEFAULT_RULES en una factoría
+    default_rules(publishers), igual que ya se hizo en cleaning por el mismo
+    motivo. Actualicé transformation/rules/__init__.py,
+    transformation/__init__.py y cli.py.
+  - Como consecuencia, simplifiqué MetricsTabulator: ya no necesita conocer
+    publishers.csv ni hacer un merge — el publisher_name ya llega resuelto en
+    cada evento desde la capa de transformación. Añadí publisher_name a
+    GROUP_KEYS (es constante dentro de cada publisher_id, así que no cambia la
+    agregación) y quité el parámetro publishers del constructor
+    (tabular/metrics_tabulator.py). Esto deja la capa tabular desacoplada por
+    completo del fichero de referencia, tal y como buscabas con la arquitectura.
+
+  Tests nuevos en test_transformation.py para la regla (conocido, desconocido,
+  ausente, resto del payload intacto). 94/94 tests pasan.
+
+❯ por ultimo me falta una regla. ya hemos contemplado en la parte de limpieza
+  el caso een el que llegan dos eventos identicos. ahora quiero contemplar un
+  caso similar. quiero contemplar el caso en el que llegan 2 eventos con el
+  mismo event_id pero con campos diferentes. para este caso quiero que los
+  campos que coincidan se mantengan, pero que para los campos que difieran nos
+  quedemos con los valores del evento cuya ts es más reciente. en caso de que
+  la ts sea uno de los campos que coinciden se pondrán a null todos los campos
+  que difieran
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/cleaning/merge.py)
+  ⎿  Wrote 67 lines to src/taptap_codetest/cleaning/merge.py
+       1 """Reconciles redeliveries of the same event (same `event_id`, d
+         ifferent
+       2 field values) into a single record.
+       3
+       4 `DuplicateLineRule` already drops byte-identical redeliveries ou
+         tright.
+       5 This handles what the brief calls out as the remaining case — "a
+          few are
+       6 not" byte-identical: the same `event_id` arriving more than once
+          with
+     … +61 lines (ctrl+o to expand)
+
+● Ahora lo expongo desde cleaning/__init__.py y lo conecto en pipeline.py y
+  cli.py.
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/cleaning/__init__.py)
+  ⎿  Added 2 lines, removed 1 line
+      1  from taptap_codetest.cleaning.base import Cleaner, CleaningRule
+      2 +from taptap_codetest.cleaning.merge import EventIdMerger        
+      3  from taptap_codetest.cleaning.rules import default_rules
+      4  
+      4 -__all__ = ["Cleaner", "CleaningRule", "default_rules"]          
+      5 +__all__ = ["Cleaner", "CleaningRule", "EventIdMerger", "default_
+        +rules"]                                                         
+
+● Write(src/taptap_codetest/pipeline.py)
+  ⎿  Added 8 lines, removed 2 lines
+      1 -"""Wires the five layers together. Each is injected, so any laye
+        -r can be                                                        
+      2 -swapped (e.g. a different `Writer`) without touching the others.
+      1 +"""Wires the pipeline's layers together. Each is injected, so an
+        +y one of                                                        
+      2 +them can be swapped (e.g. a different `Writer`) without touching
+        + the others.                                                    
+      3  """
+      4  
+      5  from __future__ import annotations
+     ...
+       8  from pathlib import Path
+       9  
+      10  from taptap_codetest.cleaning.base import Cleaner
+      11 +from taptap_codetest.cleaning.merge import EventIdMerger       
+      12  from taptap_codetest.extraction.base import Extractor
+      13  from taptap_codetest.tabular.base import Tabulator
+      14  from taptap_codetest.transformation.base import Transformer
+     ...
+      20  class Pipeline:
+      21      extractor: Extractor
+      22      cleaner: Cleaner
+      23 +    merger: EventIdMerger                                      
+      24      transformer: Transformer
+      25      tabulator: Tabulator
+      26      writer: Writer
+     ...
+      29      def run(self, input_path: Path, output_path: Path) -> None:
+      30          records = self.extractor.extract(input_path)
+      31          records = self.cleaner.clean(records)
+      32 +        # Redeliveries with the same event_id but differing fie
+         +lds (the                                                       
+      33 +        # byte-identical case is already handled inside `cleane
+         +r`) are                                                        
+      34 +        # reconciled into one record before anything downstream
+         + sees them.                                                    
+      35 +        records = self.merger.merge(records)                   
+      36          records = self.transformer.transform(records)
+      37          # build() drains the lazy chain, so rejections are comp
+          lete afterwards.
+      38          tables = self.tabulator.build(records)
+
+● Ahora actualizo cli.py:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+       6  import logging
+       7  from pathlib import Path
+       8  
+       9 -from taptap_codetest.cleaning import Cleaner                   
+       9 +from taptap_codetest.cleaning import Cleaner, EventIdMerger    
+      10  from taptap_codetest.cleaning import default_rules as default_c
+          leaning_rules
+      11  from taptap_codetest.extraction import JSONLExtractor
+      12  from taptap_codetest.pipeline import Pipeline
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line
+      46      return Pipeline(
+      47          extractor=JSONLExtractor(),
+      48          cleaner=Cleaner(rules=default_cleaning_rules()),
+      49 +        merger=EventIdMerger(),                                
+      50          transformer=Transformer(rules=default_transformation_ru
+          les(publishers)),
+      51          tabulator=MetricsTabulator(),
+      52          writer=WRITERS[output_format](partition_column="date_ut
+          c", partition_label="date"),
+
+● Write(tests/test_merge.py)
+  ⎿  Wrote 87 lines to tests/test_merge.py
+       1 from taptap_codetest.cleaning.merge import EventIdMerger
+       2 from taptap_codetest.records import Record
+       3
+       4
+       5 def _record(payload):
+       6     return Record(payload=payload)
+       7
+       8
+       9 def test_single_record_passes_through_unchanged():
+      10     merger = EventIdMerger()
+     … +77 lines (ctrl+o to expand)
+
+● Update(tests/test_merge.py)
+  ⎿  Added 2 lines, removed 2 lines
+      39  
+      40  def test_ts_encodings_are_compared_by_instant_not_by_text():
+      41      merger = EventIdMerger()
+      42 -    # Same instant as the ISO copy below, just epoch-millis enc
+         -oded.                                                          
+      43 -    older = _record({"event_id": "a", "ts": 1788249600000, "pri
+         -ce_micros": 100})                                              
+      42 +    # 1788256800000 is 2026-09-01T10:00:00Z in epoch millis — e
+         +arlier than the ISO copy below.                                
+      43 +    older = _record({"event_id": "a", "ts": 1788256800000, "pri
+         +ce_micros": 100})                                              
+      44      newer = _record({"event_id": "a", "ts": "2026-09-01T10:05:0
+          0Z", "price_micros": 200})
+      45      (result,) = list(merger.merge([older, newer]))
+      46  
+
+● Ahora ejecuto toda la suite de tests.
+
+  Ran 6 shell commands (ctrl+o to expand)
+
+● Comportamiento confirmado exactamente como se pidió: en los 3 casos reales con
+  ts coincidente, los campos que difieren (device, creative_id, ingested_at)
+  quedan en null, mientras que los que coinciden (price_micros, country,
+  event_type, ts) se mantienen.
+
+  Resumen de lo añadido:
+
+  - cleaning/merge.py — EventIdMerger: agrupa los registros supervivientes por
+    event_id y fusiona cada grupo en uno solo:
+    - Campo igual en todas las copias → se mantiene.
+    - Campo distinto → se toma del registro con ts más reciente (comparando el
+      instante parseado, no el texto, para que no falle si las copias usan
+      encodings distintos del ts).
+    - Si el propio ts coincide en todas las copias (no hay forma de saber cuál
+      es "más reciente"), todos los campos que difieran se ponen a null.
+    - Un evento sin event_id nunca se fusiona con otro.
+  - Como esta fusión necesita ver todas las copias de un event_id (que pueden
+    llegar en un fichero posterior) antes de decidir, no cabe en la interfaz
+    CleaningRule (que es solo "quedarse/descartar" un registro a la vez). Por
+    eso es una nueva etapa propia del pipeline, situada justo después de
+    cleaner.clean() y antes de transformer.transform() (pipeline.py), conectada
+    en cli.py.
+  - Esto corrige además un doble conteo real que ya tenías en los datos: busqué
+    en los ficheros reales y hay 16 event_id que llegan dos veces con contenido
+    distinto (fuera de tu events-test.jsonl); antes de esta regla se contaban
+    dos veces en bid_requests/impressions/clicks, ahora se fusionan en uno.
+
+  Tests en tests/test_merge.py (single, agree+recency, orden de llegada
+  irrelevante, encodings de ts distintos, empate de ts → null, event_id ausente
+  nunca se fusiona, fusión de 3 copias, eventos no relacionados intactos).
+  102/102 tests pasan, y la salida sobre datos reales sigue siendo byte-idéntica
+  entre dos ejecuciones.
+
+❯ <ide_opened_file>The user opened the file /mnt/c/PABLO/TAPTAP/taptapnetworks-
+  taptap-codetest-data-6f9357aafa3d/src/taptap_codetest/records.py in the IDE.
+  This may or may not be related to the current task.</ide_opened_file>
+
+❯ con estas 3 lineas lo que espero que pase es que en primer lugar se rechace
+  la ultima fila, ya que las 3 filas coinciden en id, pero la ultima tiene un
+  ts mas antiguo. para las otras dos filas su ts es identico, por tanto los
+  campos publisher_id y country se pasen a null, ya que difieren
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ <ide_selection>The user selected the lines 49 to 52 from /mnt/c/PABLO/TAPTAP/
+  taptapnetworks-taptap-codetest-data-6f9357aafa3d/data/events-test.jsonl:
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-02T02:31:51+02:00", "publisher_id": "pub_008", "country": "ESP",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-02T02:31:51+02:00", "publisher_id": "pub_007", "country": "FRA",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-01T02:31:51+02:00", "publisher_id": "pub_tests", "country": "FRA",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+
+  This may or may not be related to the current task.</ide_selection>
+
+❯ con estas 3 lineas lo que espero que pase es que en primer lugar se rechace
+  la ultima fila, ya que las 3 filas coinciden en id, pero la ultima tiene un
+  ts mas antiguo. para las otras dos filas su ts es identico, por tanto los
+  campos publisher_id y country se pasen a null, ya que difieren
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-02T02:31:51+02:00", "publisher_id": "pub_008", "country": "ESP",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-02T02:31:51+02:00", "publisher_id": "pub_007", "country": "FRA",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+  {"event_id": "br_008888", "event_type": "bid_request", "ts":
+  "2026-09-01T02:31:51+02:00", "publisher_id": "pub_tests", "country": "FRA",
+  "device": "desktop", "creative_id": null, "price_micros": null,
+  "impression_id": null, "ingested_at": "2026-09-02T00:32:15Z"}
+
+● Write(src/taptap_codetest/cleaning/merge.py)
+  ⎿  Added 43 lines, removed 27 lines
+       2  field values) into a single record.
+       3  
+       4  `DuplicateLineRule` already drops byte-identical redeliveries o
+          utright.
+       5 -This handles what the brief calls out as the remaining case — "
+         -a few are                                                      
+       6 -not" byte-identical: the same `event_id` arriving more than onc
+         -e with                                                         
+       7 -some fields differing between copies.                          
+       5 +This resolves the remaining case the brief calls out — "a few a
+         +re not"                                                        
+       6 +byte-identical — in two steps:                                 
+       7  
+       8 +1. Within a group of same-`event_id` records, only the one(s) w
+         +ith the                                                        
+       9 +   most recent `ts` are kept; every other copy is stale — super
+         +seded by                                                       
+      10 +   a more recent delivery — and is rejected outright, not merge
+         +d in.                                                          
+      11 +2. If more than one record survives step 1 (they all share that
+         + same,                                                         
+      12 +   most recent, `ts`), a field that agrees across them is kept;
+         + a field                                                       
+      13 +   that still disagrees has no `ts` left to break the tie with 
+         +and is                                                         
+      14 +   set to `None` rather than guessed.                          
+      15 +                                                               
+      16  Relies on `ValidTimestampRule` having already dropped records w
+          ith an
+      10 -unparsable `ts`, since picking the most recent copy needs every
+      11 -survivor's `ts` to be parseable.                               
+      17 +unparsable `ts`, since this needs every survivor's `ts` to be p
+         +arseable.                                                      
+      18  """
+      19  
+      20  from __future__ import annotations
+     ...
+      24  from itertools import count
+      25  from typing import Any
+      26  
+      21 -from taptap_codetest.records import Record                     
+      27 +from taptap_codetest.records import Record, Rejection          
+      28  from taptap_codetest.timeutils import parse_ts
+      29  
+      30  
+      31  class EventIdMerger:
+      32      """Merges every group of records that share an `event_id`.
+      33  
+      28 -    A field that has the same value across the whole group is k
+         -ept as                                                         
+      29 -    that value. A field that differs is taken from the record w
+         -ith the                                                        
+      30 -    most recent `ts` — unless `ts` itself is the same across th
+         -e group                                                        
+      31 -    (so there's no way to tell which copy is newer), in which c
+         -ase every                                                      
+      32 -    differing field is set to `None` rather than guessed.      
+      33 -                                                               
+      34      A record with a missing `event_id` is never grouped with an
+          other —
+      35 -    each passes through on its own.                            
+      35 +    each passes through on its own. Rejections (stale, supersed
+         +ed                                                             
+      36 +    copies) are collected in `rejections`, complete once `merge
+         +`'s                                                            
+      37 +    iterator has been exhausted.                               
+      38      """
+      39  
+      40 +    def __init__(self) -> None:                                
+      41 +        self.rejections: list[Rejection] = []                  
+      42 +                                                               
+      43      def merge(self, records: Iterable[Record]) -> Iterator[Reco
+          rd]:
+      44          groups: OrderedDict[Any, list[Record]] = OrderedDict()
+      45          unidentified = count()
+     ...
+      49              groups.setdefault(key, []).append(record)
+      50  
+      51          for group in groups.values():
+      47 -            yield group[0] if len(group) == 1 else self._merge_
+         -group(group)                                                   
+      52 +            yield group[0] if len(group) == 1 else self._resolv
+         +e_group(group)                                                 
+      53  
+      49 -    def _merge_group(self, group: list[Record]) -> Record:     
+      50 -        payloads = [record.payload for record in group]        
+      51 -        fields = {key for payload in payloads for key in payloa
+         -d}                                                             
+      54 +    def _resolve_group(self, group: list[Record]) -> Record:   
+      55 +        parsed_ts = [parse_ts(record.payload["ts"]) for record 
+         +in group]                                                      
+      56 +        most_recent = max(parsed_ts)                           
+      57  
+      53 -        ts_values = [payload.get("ts") for payload in payloads]
+      54 -        ts_all_match = all(value == ts_values[0] for value in t
+         -s_values[1:])                                                  
+      55 -        winner = None if ts_all_match else max(payloads, key=la
+         -mbda p: parse_ts(p.get("ts")))                                 
+      58 +        current = [r for r, ts in zip(group, parsed_ts) if ts =
+         += most_recent]                                                 
+      59 +        stale = [r for r, ts in zip(group, parsed_ts) if ts != 
+         +most_recent]                                                   
+      60  
+      57 -        merged: dict[str, Any] = {}                            
+      61 +        event_id = group[0].payload.get("event_id")            
+      62 +        for record in stale:                                   
+      63 +            self.rejections.append(                            
+      64 +                Rejection.of(                                  
+      65 +                    record,                                    
+      66 +                    f"stale_event_id: a more recent copy of eve
+         +nt_id {event_id!r} was kept",                                  
+      67 +                )                                              
+      68 +            )                                                  
+      69 +                                                               
+      70 +        return current[0] if len(current) == 1 else self._merge
+         +_same_ts(current)                                              
+      71 +                                                               
+      72 +    def _merge_same_ts(self, group: list[Record]) -> Record:   
+      73 +        payloads = [record.payload for record in group]        
+      74 +        fields = {key for payload in payloads for key in payloa
+         +d} - {"ts"}                                                    
+      75 +                                                               
+      76 +        # Every record here shares the same ts by construction 
+         +(that's                                                        
+      77 +        # exactly how `current` was built), so it needs no reso
+         +lving.                                                         
+      78 +        merged: dict[str, Any] = {"ts": payloads[0]["ts"]}     
+      79          for field in fields:
+      80              values = [payload.get(field) for payload in payload
+          s]
+      60 -            if all(value == values[0] for value in values[1:]):
+      61 -                merged[field] = values[0]                      
+      62 -            elif ts_all_match:                                 
+      63 -                merged[field] = None                           
+      64 -            else:                                              
+      65 -                merged[field] = winner.get(field)              
+      81 +            merged[field] = values[0] if all(value == values[0]
+         + for value in values[1:]) else None                            
+      82  
+      83          return group[0].with_payload(merged)
+
+● Ahora actualizo pipeline.py para incluir las rejections del merger en el
+  fichero final, y cli.py para el log.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/pipeline.py)
+  ⎿  Added 1 line, removed 1 line
+      39          self.writer.write(tables, output_path)
+      40  
+      41          rejections = sorted(
+      42 -            [*self.extractor.rejections, *self.cleaner.rejectio
+         -ns],                                                           
+      42 +            [*self.extractor.rejections, *self.cleaner.rejectio
+         +ns, *self.merger.rejections],                                  
+      43              key=lambda r: (r.source_file, r.line_number),
+      44          )
+      45          self.rejection_writer.write(rejections, output_path)
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 3 lines, removed 1 line
+      63  
+      64      logging.getLogger(__name__).info(
+      65          "Rejected %d lines",
+      66 -        len(pipeline.extractor.rejections) + len(pipeline.clean
+         -er.rejections),                                                
+      66 +        len(pipeline.extractor.rejections)                     
+      67 +        + len(pipeline.cleaner.rejections)                     
+      68 +        + len(pipeline.merger.rejections),                     
+      69      )
+      70  
+      71  
+
+● Ahora reescribo tests/test_merge.py con la semántica corregida, incluyendo tu
+  ejemplo exacto de las 3 líneas.
+
+● Write(tests/test_merge.py)
+  ⎿  Added 84 lines, removed 28 lines
+      2  from taptap_codetest.records import Record
+      3  
+      4  
+      5 -def _record(payload):                                           
+      6 -    return Record(payload=payload)                              
+      5 +def _record(payload, **provenance):                             
+      6 +    return Record(payload=payload, **provenance)                
+      7  
+      8  
+      9  def test_single_record_passes_through_unchanged():
+     ...
+       11      record = _record({"event_id": "a", "country": "ES"})
+       12      (result,) = list(merger.merge([record]))
+       13      assert result is record
+       14 +    assert merger.rejections == []                            
+       15  
+       16  
+       16 -def test_agreeing_fields_are_kept_and_differing_fields_take_th
+          -e_most_recent_ts():                                           
+       17 +def test_stale_copy_is_rejected_and_the_most_recent_one_passes
+          +_through():                                                   
+       18      merger = EventIdMerger()
+       19      older = _record(
+       19 -        {"event_id": "a", "ts": "2026-09-01T10:00:00Z", "count
+          -ry": "ES", "price_micros": 100}                               
+       20 +        {"event_id": "a", "ts": "2026-09-01T10:00:00Z", "count
+          +ry": "ES"},                                                   
+       21 +        source_file="f.jsonl",                                
+       22 +        line_number=1,                                        
+       23      )
+       24      newer = _record(
+       22 -        {"event_id": "a", "ts": "2026-09-01T10:05:00Z", "count
+          -ry": "ES", "price_micros": 200}                               
+       25 +        {"event_id": "a", "ts": "2026-09-01T10:05:00Z", "count
+          +ry": "FR"},                                                   
+       26 +        source_file="f.jsonl",                                
+       27 +        line_number=2,                                        
+       28      )
+       29      (result,) = list(merger.merge([older, newer]))
+       30  
+       26 -    assert result.payload["country"] == "ES"  # agrees, kept  
+       27 -    assert result.payload["ts"] == "2026-09-01T10:05:00Z"  # d
+          -iffers, most recent wins                                      
+       28 -    assert result.payload["price_micros"] == 200  # differs, m
+          -ost recent wins                                               
+       31 +    assert result.payload == newer.payload                    
+       32 +    assert len(merger.rejections) == 1                        
+       33 +    assert merger.rejections[0].line_number == 1              
+       34 +    assert merger.rejections[0].reason.startswith("stale_event
+          +_id:")                                                        
+       35  
+       36  
+       31 -def test_most_recent_wins_regardless_of_arrival_order():      
+       37 +def test_stale_copy_is_rejected_regardless_of_arrival_order():
+       38      merger = EventIdMerger()
+       33 -    newer = _record({"event_id": "a", "ts": "2026-09-01T10:05:
+          -00Z", "price_micros": 200})                                   
+       34 -    older = _record({"event_id": "a", "ts": "2026-09-01T10:00:
+          -00Z", "price_micros": 100})                                   
+       39 +    newer = _record({"event_id": "a", "ts": "2026-09-01T10:05:
+          +00Z", "country": "FR"})                                       
+       40 +    older = _record({"event_id": "a", "ts": "2026-09-01T10:00:
+          +00Z", "country": "ES"})                                       
+       41      (result,) = list(merger.merge([newer, older]))  # newer ar
+           rives first
+       42  
+       37 -    assert result.payload["price_micros"] == 200              
+       43 +    assert result.payload["country"] == "FR"                  
+       44 +    assert len(merger.rejections) == 1                        
+       45  
+       46  
+       47  def test_ts_encodings_are_compared_by_instant_not_by_text():
+       48      merger = EventIdMerger()
+       49      # 1788256800000 is 2026-09-01T10:00:00Z in epoch millis — 
+           earlier than the ISO copy below.
+       43 -    older = _record({"event_id": "a", "ts": 1788256800000, "pr
+          -ice_micros": 100})                                            
+       44 -    newer = _record({"event_id": "a", "ts": "2026-09-01T10:05:
+          -00Z", "price_micros": 200})                                   
+       50 +    older = _record({"event_id": "a", "ts": 1788256800000, "co
+          +untry": "ES"})                                                
+       51 +    newer = _record({"event_id": "a", "ts": "2026-09-01T10:05:
+          +00Z", "country": "FR"})                                       
+       52      (result,) = list(merger.merge([older, newer]))
+       53  
+       47 -    assert result.payload["price_micros"] == 200              
+       54 +    assert result.payload["country"] == "FR"                  
+       55 +    assert len(merger.rejections) == 1                        
+       56  
+       57  
+       50 -def test_differing_fields_become_null_when_ts_itself_agrees():
+       58 +def test_differing_fields_become_null_when_the_surviving_copie
+          +s_share_the_same_ts():                                        
+       59      merger = EventIdMerger()
+       60      a = _record({"event_id": "a", "ts": "2026-09-01T10:00:00Z"
+           , "price_micros": 100})
+       61      b = _record({"event_id": "a", "ts": "2026-09-01T10:00:00Z"
+           , "price_micros": 200})
+       62      (result,) = list(merger.merge([a, b]))
+       63  
+       64      assert result.payload["ts"] == "2026-09-01T10:00:00Z"  # a
+           grees, kept
+       57 -    assert result.payload["price_micros"] is None  # differs, 
+          -but no recency to break the tie                               
+       65 +    assert result.payload["price_micros"] is None  # differs, 
+          +no ts left to break the tie                                   
+       66 +    assert merger.rejections == []  # nothing was stale, both 
+          +share the winning ts                                          
+       67  
+       68  
+       69 +def test_three_copies_reject_the_stale_one_then_null_the_remai
+          +ning_disagreement():                                          
+       70 +    """The exact scenario reported: three copies of the same e
+          +vent_id, two                                                  
+       71 +    share the most recent ts (but disagree on publisher_id/cou
+          +ntry), one                                                    
+       72 +    has an older ts and must be rejected outright.            
+       73 +    """                                                       
+       74 +    merger = EventIdMerger()                                  
+       75 +    a = _record(                                              
+       76 +        {                                                     
+       77 +            "event_id": "br_008888",                          
+       78 +            "event_type": "bid_request",                      
+       79 +            "ts": "2026-09-02T02:31:51+02:00",                
+       80 +            "publisher_id": "pub_008",                        
+       81 +            "country": "ESP",                                 
+       82 +            "device": "desktop",                              
+       83 +        },                                                    
+       84 +        source_file="events-test.jsonl",                      
+       85 +        line_number=50,                                       
+       86 +    )                                                         
+       87 +    b = _record(                                              
+       88 +        {                                                     
+       89 +            "event_id": "br_008888",                          
+       90 +            "event_type": "bid_request",                      
+       91 +            "ts": "2026-09-02T02:31:51+02:00",                
+       92 +            "publisher_id": "pub_007",                        
+       93 +            "country": "FRA",                                 
+       94 +            "device": "desktop",                              
+       95 +        },                                                    
+       96 +        source_file="events-test.jsonl",                      
+       97 +        line_number=51,                                       
+       98 +    )                                                         
+       99 +    stale = _record(                                          
+      100 +        {                                                     
+      101 +            "event_id": "br_008888",                          
+      102 +            "event_type": "bid_request",                      
+      103 +            "ts": "2026-09-01T02:31:51+02:00",                
+      104 +            "publisher_id": "pub_tests",                      
+      105 +            "country": "FRA",                                 
+      106 +            "device": "desktop",                              
+      107 +        },                                                    
+      108 +        source_file="events-test.jsonl",                      
+      109 +        line_number=52,                                       
+      110 +    )                                                         
+      111 +                                                              
+      112 +    (result,) = list(merger.merge([a, b, stale]))             
+      113 +                                                              
+      114 +    assert len(merger.rejections) == 1                        
+      115 +    assert merger.rejections[0].line_number == 52             
+      116 +    assert merger.rejections[0].reason.startswith("stale_event
+          +_id:")                                                        
+      117 +                                                              
+      118 +    assert result.payload["ts"] == "2026-09-02T02:31:51+02:00"
+          +  # agrees between a and b, kept                              
+      119 +    assert result.payload["event_type"] == "bid_request"  # ag
+          +rees, kept                                                    
+      120 +    assert result.payload["device"] == "desktop"  # agrees, ke
+          +pt                                                            
+      121 +    assert result.payload["publisher_id"] is None  # differs b
+          +etween a and b                                                
+      122 +    assert result.payload["country"] is None  # differs betwee
+          +n a and b                                                     
+      123 +                                                              
+      124 +                                                              
+      125  def test_records_with_missing_event_id_are_never_merged_togeth
+           er():
+      126      merger = EventIdMerger()
+      127      a = _record({"event_id": None, "price_micros": 100})
+     ...
+      130  
+      131      assert len(results) == 2
+      132      assert {r.payload["price_micros"] for r in results} == {10
+           0, 200}
+      133 +    assert merger.rejections == []                            
+      134  
+      135  
+       70 -def test_three_way_merge_resolves_pairwise_too():             
+       71 -    merger = EventIdMerger()                                  
+       72 -    first = _record({"event_id": "a", "ts": "2026-09-01T10:00:
+          -00Z", "device": "mobile"})                                    
+       73 -    second = _record({"event_id": "a", "ts": "2026-09-01T10:05
+          -:00Z", "device": "tablet"})                                   
+       74 -    third = _record({"event_id": "a", "ts": "2026-09-01T10:10:
+          -00Z", "device": "ctv"})                                       
+       75 -    (result,) = list(merger.merge([first, second, third]))    
+       76 -                                                              
+       77 -    assert result.payload["ts"] == "2026-09-01T10:10:00Z"     
+       78 -    assert result.payload["device"] == "ctv"                  
+       79 -                                                              
+       80 -                                                              
+      136  def test_unrelated_events_are_left_alone():
+      137      merger = EventIdMerger()
+      138      a = _record({"event_id": "a", "country": "ES"})
+     ...
+      140      results = list(merger.merge([a, b]))
+      141  
+      142      assert [r.payload["event_id"] for r in results] == ["a", "
+           b"]
+      143 +    assert merger.rejections == []                            
+
+  Ran 1 shell command (ctrl+o to expand)
+● 102/102 pasan. Ahora pruebo exactamente tu caso de las 3 líneas directamente
+  contra events-test.jsonl y confirmo idempotencia sobre los datos reales.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+● Exactamente como esperabas: la tercera línea (línea 51 en el fichero real) se
+  rechaza como stale_event_id, y entre las dos restantes (mismo ts),
+  publisher_id y country quedan a null por diferir, mientras el resto se
+  mantiene.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Todo correcto: 3 rechazos stale_event_id sobre los datos reales congelados,
+  sin crashes, y salida byte-idéntica entre dos ejecuciones.
+
+  Resumen del ajuste en EventIdMerger (cleaning/merge.py):
+
+  Corregí el algoritmo para que coincida con lo que describiste — antes, con 3+
+  copias, mi versión elegía "un ganador" arbitrario para rellenar todos los
+  campos que difirieran, sin rechazar nada. Ahora el algoritmo es en dos pasos,
+  tal y como pediste:
+
+  1. Dentro de un grupo con el mismo event_id, se calcula el ts más reciente
+     (comparando el instante, no el texto). Cualquier copia cuyo ts no sea ese
+     máximo se rechaza (pasa a _rejects/rejects.jsonl con motivo stale_event_id:
+     ...), no se fusiona.
+  2. Entre las copias que sí comparten ese ts más reciente, se aplica la regla
+     de antes: campo igual → se mantiene; campo distinto → null (ya no hay otro
+     ts con el que desempatar).
+
+  Esto simplifica el caso de 2 copias también: la antigua queda rechazada y la
+  reciente pasa íntegra; con 3+ copias, solo sobrevive el subgrupo con el ts
+  ganador, y ahí dentro se aplica el null-si-difieren.
+
+  Añadí EventIdMerger.rejections (igual que Cleaner/Extractor) y lo conecté en
+  pipeline.py y el log de cli.py para que estas bajas también aparezcan en
+  _rejects/rejects.jsonl.
+
+  Reescribí tests/test_merge.py con la nueva semántica, incluyendo tu caso
+  exacto de las 3 líneas (br_008888) como test dedicado. 102/102 tests pasan, y
+  verifiqué el comportamiento directamente contra tu events-test.jsonl: la línea
+  51 se rechaza como stale_event_id, y publisher_id/country quedan a null en el
+  registro resultante.
+
+❯ que crees que deberia incluirse en un summary.json dentro de out?
+
+● Yo incluiría tres bloques: totales (líneas leídas, aceptadas, rechazadas), un
+  desglose de rechazos por motivo (invalid_ts, invalid_price, duplicate_line,
+  stale_event_id, implausible_ts, invalid_json...) para detectar de un vistazo
+  si un tipo de error se dispara de golpe, y contadores de negocio
+  (bid_requests/impressions/clicks totales, spend_eur total, nº de publisher_id
+  resueltos como UNKNOWN, nº de particiones date= generadas). El trade-off
+  principal es granularidad vs. simplicidad: más desglose ayuda a depurar pero
+  es más superficie que mantener sincronizada con cada regla nueva que añadamos;
+  y hay que vigilar que nada de esto introduzca no-determinismo (sin timestamps
+  de ejecución ni IDs de run, ya que debe ser byte-identical entre
+  ejecuciones).
+
+  ¿Quieres que lo implemente con ese contenido, o prefieres ajustar qué entra?
+
+❯ quiero que incluya el total de lineas leidas aceptadas y rechazadas y el
+  numero de rechazos que ha habido de cada tipo
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/extraction/base.py)
+  ⎿  Added 3 lines, removed 1 line
+      18      """Produces `Record` objects from a given input path.
+      19  
+      20      Lines that can't be turned into a `Record` are collected in
+           `rejections`,
+      21 -    which is complete once the `extract` iterator has been exha
+         -usted.                                                         
+      21 +    and every non-blank line seen is counted in `lines_read` — 
+         +both complete                                                  
+      22 +    once the `extract` iterator has been exhausted.            
+      23      """
+      24  
+      25      def __init__(self) -> None:
+      26          self.rejections: list[Rejection] = []
+      27 +        self.lines_read: int = 0                               
+      28  
+      29      @abstractmethod
+      30      def extract(self, input_path: Path) -> Iterator[Record]:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/extraction/jsonl_extractor.py)
+  ⎿  Added 1 line
+      39                  raw_line = line.rstrip("\r\n")
+      40                  if not raw_line.strip():
+      41                      continue
+      42 +                self.lines_read += 1                           
+      43                  try:
+      44                      payload = json.loads(raw_line)
+      45                  except json.JSONDecodeError as exc:
+
+● Ahora creo el SummaryWriter:
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/writing/summary_writer.py)
+  ⎿  Wrote 18 lines to src/taptap_codetest/writing/summary_writer.py
+      1 from __future__ import annotations
+      2
+      3 import json
+      4 from pathlib import Path
+      5 from typing import Any
+      6
+      7
+      8 class SummaryWriter:
+      9     """Writes the run's summary counts as a single pretty-printed
+         JSON file."""
+     … +9 lines (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/writing/__init__.py)
+  ⎿  Added 9 lines, removed 1 line
+       2  from taptap_codetest.writing.csv_writer import CSVWriter
+       3  from taptap_codetest.writing.parquet_writer import ParquetWrite
+          r
+       4  from taptap_codetest.writing.rejection_writer import RejectionW
+          riter
+       5 +from taptap_codetest.writing.summary_writer import SummaryWrite
+         +r                                                              
+       6  
+       7  WRITERS: dict[str, type[Writer]] = {
+       8      "csv": CSVWriter,
+       9      "parquet": ParquetWriter,
+      10  }
+      11  
+      11 -__all__ = ["Writer", "CSVWriter", "ParquetWriter", "RejectionWr
+         -iter", "WRITERS"]                                              
+      12 +__all__ = [                                                    
+      13 +    "Writer",                                                  
+      14 +    "CSVWriter",                                               
+      15 +    "ParquetWriter",                                           
+      16 +    "RejectionWriter",                                         
+      17 +    "SummaryWriter",                                           
+      18 +    "WRITERS",                                                 
+      19 +]                                                              
+
+● Ahora actualizo pipeline.py para calcular el resumen y escribirlo:
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(src/taptap_codetest/pipeline.py)
+  ⎿  Added 17 lines
+      10  from taptap_codetest.cleaning.base import Cleaner
+      11  from taptap_codetest.cleaning.merge import EventIdMerger
+      12  from taptap_codetest.extraction.base import Extractor
+      13 +from taptap_codetest.records import Rejection                  
+      14  from taptap_codetest.tabular.base import Tabulator
+      15  from taptap_codetest.transformation.base import Transformer
+      16  from taptap_codetest.writing.base import Writer
+      17  from taptap_codetest.writing.rejection_writer import RejectionW
+          riter
+      18 +from taptap_codetest.writing.summary_writer import SummaryWrite
+         +r                                                              
+      19  
+      20  
+      21  @dataclass
+     ...
+      27      tabulator: Tabulator
+      28      writer: Writer
+      29      rejection_writer: RejectionWriter
+      30 +    summary_writer: SummaryWriter                              
+      31  
+      32      def run(self, input_path: Path, output_path: Path) -> None:
+      33          records = self.extractor.extract(input_path)
+     ...
+      46              key=lambda r: (r.source_file, r.line_number),
+      47          )
+      48          self.rejection_writer.write(rejections, output_path)
+      49 +        self.summary_writer.write(self._summarize(rejections), 
+         +output_path)                                                   
+      50 +                                                               
+      51 +    def _summarize(self, rejections: list[Rejection]) -> dict: 
+      52 +        rejections_by_type: dict[str, int] = {}                
+      53 +        for rejection in rejections:                           
+      54 +            category = rejection.reason.split(":", 1)[0]       
+      55 +            rejections_by_type[category] = rejections_by_type.g
+         +et(category, 0) + 1                                            
+      56 +                                                               
+      57 +        return {                                               
+      58 +            "lines_read": self.extractor.lines_read,           
+      59 +            "lines_accepted": self.extractor.lines_read - len(r
+         +ejections),                                                    
+      60 +            "lines_rejected": len(rejections),                 
+      61 +            "rejections_by_type": rejections_by_type,          
+      62 +        }                                                      
+
+● Ahora actualizo cli.py para construir el SummaryWriter:
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line, removed 1 line
+      14  from taptap_codetest.tabular import MetricsTabulator
+      15  from taptap_codetest.transformation import Transformer
+      16  from taptap_codetest.transformation import default_rules as def
+          ault_transformation_rules
+      17 -from taptap_codetest.writing import WRITERS, RejectionWriter   
+      17 +from taptap_codetest.writing import WRITERS, RejectionWriter, S
+         +ummaryWriter                                                   
+      18  
+      19  
+      20  def parse_args(argv: list[str] | None = None) -> argparse.Names
+          pace:
+
+● Update(src/taptap_codetest/cli.py)
+  ⎿  Added 1 line
+      51          tabulator=MetricsTabulator(),
+      52          writer=WRITERS[output_format](partition_column="date_ut
+          c", partition_label="date"),
+      53          rejection_writer=RejectionWriter(),
+      54 +        summary_writer=SummaryWriter(),                        
+      55      )
+      56  
+      57  
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Bien, solo cli.py construye Pipeline directamente. Ahora añado tests para el
+  resumen y ejecuto toda la suite.
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_pipeline.py)
+  ⎿  Added 13 lines
+       91      assert rejected[1]["source_file"].endswith("events.jsonl")
+       92      assert rejected[3]["raw_line"] == redelivered_line
+       93  
+       94 +    summary = json.loads((output_dir / "_summary.json").read_t
+          +ext())                                                        
+       95 +    assert summary == {                                       
+       96 +        "lines_read": 10,                                     
+       97 +        "lines_accepted": 6,                                  
+       98 +        "lines_rejected": 4,                                  
+       99 +        "rejections_by_type": {                               
+      100 +            "invalid_price": 1,                               
+      101 +            "invalid_ts": 1,                                  
+      102 +            "invalid_json": 1,                                
+      103 +            "duplicate_line": 1,                              
+      104 +        },                                                    
+      105 +    }                                                         
+      106  
+      107 +                                                              
+      108  def test_late_event_partitions_by_its_own_date_not_the_file_it
+           _arrived_in(tmp_path):
+      109      input_dir = tmp_path / "in"
+      110      output_dir = tmp_path / "out"
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(tests/test_writing.py)
+  ⎿  Added 1 line
+       5  from taptap_codetest.records import Rejection
+       6  from taptap_codetest.writing.csv_writer import CSVWriter
+       7  from taptap_codetest.writing.rejection_writer import RejectionW
+          riter
+       8 +from taptap_codetest.writing.summary_writer import SummaryWrite
+         +r                                                              
+       9  
+      10  
+      11  def test_unpartitioned_table_is_written_flat(tmp_path):
+
+● Update(tests/test_writing.py)  ⎿  Added 14 lines
+      51      rejects_file = tmp_path / "_rejects" / "rejects.jsonl"
+      52      assert rejects_file.exists()
+      53      assert json.loads(rejects_file.read_text().splitlines()[0])
+          ["line_number"] == 3
+      54 +                                                               
+      55 +                                                               
+      56 +def test_summary_writer_writes_the_given_counts(tmp_path):     
+      57 +    summary = {                                                
+      58 +        "lines_read": 10,                                      
+      59 +        "lines_accepted": 7,                                   
+      60 +        "lines_rejected": 3,                                   
+      61 +        "rejections_by_type": {"invalid_ts": 2, "duplicate_line
+         +": 1},                                                         
+      62 +    }                                                          
+      63 +    SummaryWriter().write(summary, tmp_path)                   
+      64 +                                                               
+      65 +    summary_file = tmp_path / "_summary.json"                  
+      66 +    assert summary_file.exists()                               
+      67 +    assert json.loads(summary_file.read_text()) == summary     
+
+● Ahora ejecuto toda la suite y pruebo sobre datos reales.
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Funciona correctamente y es idéntico entre dos ejecuciones.
+
+  Resumen de lo añadido:
+
+  - extraction/base.py y extraction/jsonl_extractor.py — lines_read: cuenta cada
+    línea no vacía procesada (base para el total).
+  - writing/summary_writer.py — SummaryWriter: vuelca el diccionario de resumen
+    como JSON indentado y con claves ordenadas (determinista entre ejecuciones).
+  - pipeline.py — Pipeline._summarize() calcula: lines_read, lines_rejected
+    (suma de rechazos de extracción + limpieza + fusión por event_id),
+    lines_accepted (= leídas − rechazadas), y rejections_by_type (agrupando por
+    la categoría antes de los : de cada motivo, igual que ya hacían los tests).
+  - Conectado en cli.py.
+
+  Verificado sobre los datos reales: _summary.json con 8439 leídas, 8231
+  aceptadas, 208 rechazadas, desglosadas por tipo (duplicate_line,
+  implausible_ts, invalid_json, invalid_price, invalid_ts, missing_ts,
+  stale_event_id). 103/103 tests pasan y la salida es byte-idéntica entre
+  ejecuciones.

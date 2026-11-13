@@ -18,11 +18,13 @@ class Extractor(ABC):
     """Produces `Record` objects from a given input path.
 
     Lines that can't be turned into a `Record` are collected in `rejections`,
-    which is complete once the `extract` iterator has been exhausted.
+    and every non-blank line seen is counted in `lines_read` — both complete
+    once the `extract` iterator has been exhausted.
     """
 
     def __init__(self) -> None:
         self.rejections: list[Rejection] = []
+        self.lines_read: int = 0
 
     @abstractmethod
     def extract(self, input_path: Path) -> Iterator[Record]:

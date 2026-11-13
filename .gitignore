@@ -48,3 +48,9 @@ Thumbs.db
 *.mov
 *.wmv
 
+
+events_2026-09-01.jsonl
+events_2026-09-02.jsonl
+events_2026-09-03.jsonl
+publishers.csv
+late-delivery/events_2026-09-03_late.jsonl

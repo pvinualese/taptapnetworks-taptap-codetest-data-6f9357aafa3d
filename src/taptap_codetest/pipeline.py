@@ -10,10 +10,12 @@ from pathlib import Path
 from taptap_codetest.cleaning.base import Cleaner
 from taptap_codetest.cleaning.merge import EventIdMerger
 from taptap_codetest.extraction.base import Extractor
+from taptap_codetest.records import Rejection
 from taptap_codetest.tabular.base import Tabulator
 from taptap_codetest.transformation.base import Transformer
 from taptap_codetest.writing.base import Writer
 from taptap_codetest.writing.rejection_writer import RejectionWriter
+from taptap_codetest.writing.summary_writer import SummaryWriter
 
 
 @dataclass
@@ -25,6 +27,7 @@ class Pipeline:
     tabulator: Tabulator
     writer: Writer
     rejection_writer: RejectionWriter
+    summary_writer: SummaryWriter
 
     def run(self, input_path: Path, output_path: Path) -> None:
         records = self.extractor.extract(input_path)
@@ -43,3 +46,17 @@ class Pipeline:
             key=lambda r: (r.source_file, r.line_number),
         )
         self.rejection_writer.write(rejections, output_path)
+        self.summary_writer.write(self._summarize(rejections), output_path)
+
+    def _summarize(self, rejections: list[Rejection]) -> dict:
+        rejections_by_type: dict[str, int] = {}
+        for rejection in rejections:
+            category = rejection.reason.split(":", 1)[0]
+            rejections_by_type[category] = rejections_by_type.get(category, 0) + 1
+
+        return {
+            "lines_read": self.extractor.lines_read,
+            "lines_accepted": self.extractor.lines_read - len(rejections),
+            "lines_rejected": len(rejections),
+            "rejections_by_type": rejections_by_type,
+        }

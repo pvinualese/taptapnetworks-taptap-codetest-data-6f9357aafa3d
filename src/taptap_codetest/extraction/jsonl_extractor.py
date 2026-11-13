@@ -39,6 +39,7 @@ class JSONLExtractor(Extractor):
                 raw_line = line.rstrip("\r\n")
                 if not raw_line.strip():
                     continue
+                self.lines_read += 1
                 try:
                     payload = json.loads(raw_line)
                 except json.JSONDecodeError as exc:

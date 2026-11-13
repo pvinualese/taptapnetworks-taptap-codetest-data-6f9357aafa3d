@@ -1,0 +1,12 @@
+{
+  "lines_accepted": 40,
+  "lines_read": 51,
+  "lines_rejected": 11,
+  "rejections_by_type": {
+    "duplicate_line": 4,
+    "implausible_ts": 1,
+    "invalid_price": 4,
+    "invalid_ts": 1,
+    "stale_event_id": 1
+  }
+}

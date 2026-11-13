@@ -91,6 +91,19 @@ def test_pipeline_aggregates_and_writes_rejections(tmp_path):
     assert rejected[1]["source_file"].endswith("events.jsonl")
     assert rejected[3]["raw_line"] == redelivered_line
 
+    summary = json.loads((output_dir / "_summary.json").read_text())
+    assert summary == {
+        "lines_read": 10,
+        "lines_accepted": 6,
+        "lines_rejected": 4,
+        "rejections_by_type": {
+            "invalid_price": 1,
+            "invalid_ts": 1,
+            "invalid_json": 1,
+            "duplicate_line": 1,
+        },
+    }
+
 
 def test_late_event_partitions_by_its_own_date_not_the_file_it_arrived_in(tmp_path):
     input_dir = tmp_path / "in"

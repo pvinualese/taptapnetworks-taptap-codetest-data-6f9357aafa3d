@@ -14,7 +14,7 @@ from taptap_codetest.reference import load_publishers
 from taptap_codetest.tabular import MetricsTabulator
 from taptap_codetest.transformation import Transformer
 from taptap_codetest.transformation import default_rules as default_transformation_rules
-from taptap_codetest.writing import WRITERS, RejectionWriter
+from taptap_codetest.writing import WRITERS, RejectionWriter, SummaryWriter
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -51,6 +51,7 @@ def build_pipeline(input_path: Path, output_format: str = "csv") -> Pipeline:
         tabulator=MetricsTabulator(),
         writer=WRITERS[output_format](partition_column="date_utc", partition_label="date"),
         rejection_writer=RejectionWriter(),
+        summary_writer=SummaryWriter(),
     )
 
 

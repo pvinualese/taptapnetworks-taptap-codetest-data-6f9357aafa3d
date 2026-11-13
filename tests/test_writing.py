@@ -5,6 +5,7 @@ import pandas as pd
 from taptap_codetest.records import Rejection
 from taptap_codetest.writing.csv_writer import CSVWriter
 from taptap_codetest.writing.rejection_writer import RejectionWriter
+from taptap_codetest.writing.summary_writer import SummaryWriter
 
 
 def test_unpartitioned_table_is_written_flat(tmp_path):
@@ -50,3 +51,17 @@ def test_rejection_writer_writes_under_its_own_subdirectory(tmp_path):
     rejects_file = tmp_path / "_rejects" / "rejects.jsonl"
     assert rejects_file.exists()
     assert json.loads(rejects_file.read_text().splitlines()[0])["line_number"] == 3
+
+
+def test_summary_writer_writes_the_given_counts(tmp_path):
+    summary = {
+        "lines_read": 10,
+        "lines_accepted": 7,
+        "lines_rejected": 3,
+        "rejections_by_type": {"invalid_ts": 2, "duplicate_line": 1},
+    }
+    SummaryWriter().write(summary, tmp_path)
+
+    summary_file = tmp_path / "_summary.json"
+    assert summary_file.exists()
+    assert json.loads(summary_file.read_text()) == summary
