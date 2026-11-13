@@ -34,3 +34,10 @@ Alerts would be triggered whenever these metrics exceed predefined thresholds.
 The main purpose was to establish the project structure and develop the code responsible for data cleaning, transformation, and output generation, following specific rules and instructions. This code includes tests.
 
 During the initial development phase, the platform experienced some issues, which required opening a new session. This explains why there are two text files containing AI conversations.
+
+## 6. Extra Notes
+- Architecture: Enfoque modular con el objetivo de separar cada capa (limpieza, transformacion, lectura, escritura...) y cada regla (timestamp, price, market...)
+- Uso de librería pandas para la manipulación de datos tabulares
+- Uso de uv como gestor de paquetería y dependencias de Python. Alternativa: pip.
+- test unitarios con pytest
+- Uso de fichero para pruebas: events-test.jsonl. Contiene diferentes lineas que forman parte de los ficheros dados, pero que incluyen modificaciones para validar el funcionamiento del sistema.
