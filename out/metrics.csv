@@ -1,0 +1,31 @@
+date_utc,hour_utc,country,publisher_id,publisher_name,bid_requests,impressions,clicks,ctr,spend_eur
+2026-09-01,0, DE ,pub_017,Inmobiliaria Net,1,0,0,0.0,0.0
+2026-09-01,0, ES ,pub_003,Canal Meteo,0,0,1,0.0,0.0
+2026-09-01,0,ES,pub_002,RadioVoz,1,0,0,0.0,0.0
+2026-09-01,0,GB,pub_003,Canal Meteo,1,0,0,0.0,0.0
+2026-09-01,1,DE,pub_003,Canal Meteo,1,0,0,0.0,0.0
+2026-09-01,1,ES,pub_013,Empleo Ya,1,0,0,0.0,0.0
+2026-09-01,3,DEU,pub_004,Cocina Express,0,1,0,0.0,0.3319
+2026-09-01,3,FR,pub_010,La Bolsa Hoy,2,0,0,0.0,0.0
+2026-09-01,4,FR,pub_002,RadioVoz,0,1,0,0.0,0.1504
+2026-09-01,4,FR,pub_014,Ciencia Abierta,1,0,0,0.0,0.0
+2026-09-01,4,FR,pub_020,Noticias 24,1,0,0,0.0,0.0
+2026-09-01,5,ES,pub_006,Vida Sana,1,0,0,0.0,0.0
+2026-09-01,6,FR,pub_012,Padres Club,1,0,0,0.0,0.0
+2026-09-01,7,ES,pub_004,Cocina Express,1,0,0,0.0,0.0
+2026-09-01,7,GB,pub_006,Vida Sana,1,0,0,0.0,0.0
+2026-09-01,9,ES,pub_016,Gaming Arena,1,0,0,0.0,0.0
+2026-09-01,10,IT,pub_006,Vida Sana,1,0,0,0.0,0.0
+2026-09-01,10,PT,pub_013,Empleo Ya,1,0,0,0.0,0.0
+2026-09-01,11,it,pub_006,Vida Sana,0,1,0,0.0,0.3988
+2026-09-01,12,ITA,pub_004,Cocina Express,1,0,0,0.0,0.0
+2026-09-01,14,ES,pub_014,Ciencia Abierta,1,0,0,0.0,0.0
+2026-09-01,16,ES,pub_015,Moda Urbana,0,1,0,0.0,0.2696
+2026-09-01,16,FR,pub_013,Empleo Ya,1,0,0,0.0,0.0
+2026-09-01,17,DEU,pub_009,Viajes Ahora,1,0,0,0.0,0.0
+2026-09-01,17,IT,pub_009,Viajes Ahora,1,0,0,0.0,0.0
+2026-09-01,19,GB,pub_001,El Diario Digital,1,0,0,0.0,0.0
+2026-09-01,20,DE,pub_011,Series y Cine,1,0,0,0.0,0.0
+2026-09-01,21,ES,pub_007,Futbol Total,1,0,0,0.0,0.0
+2026-09-01,22, ES ,pub_009,Viajes Ahora,1,0,0,0.0,0.0
+2026-09-01,23,ES,pub_012,Padres Club,1,0,0,0.0,0.0
